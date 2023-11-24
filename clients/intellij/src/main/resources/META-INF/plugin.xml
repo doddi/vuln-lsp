@@ -1,0 +1,23 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>com.github.doddi.anathema</id>
+    <name>anathema-lsp</name>
+    <vendor>doddi</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.ultimate</depends>
+
+    <resource-bundle>messages.MyBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+<!--        <toolWindow factoryClass="com.github.doddi.anathema.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>-->
+
+        <!-- LSP-->
+        <platform.lsp.serverSupportProvider implementation="com.github.doddi.anathema.lsp.AnathemaLspServerSupportProvider"/>
+    </extensions>
+
+<!--    <applicationListeners>-->
+<!--        <listener class="com.github.doddi.anathema.listeners.MyApplicationActivationListener" topic="com.intellij.openapi.application.ApplicationActivationListener"/>-->
+<!--    </applicationListeners>-->
+
+</idea-plugin>
