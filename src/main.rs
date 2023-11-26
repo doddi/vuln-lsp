@@ -1,8 +1,9 @@
+use iq_lsp::lsp::document_store::{self};
+use iq_lsp::{pom, vulnerability_server};
 use log::{debug, info};
 use std::fs::File;
 use std::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::lsif::Document;
 use tower_lsp::lsp_types::{
     CompletionContext, CompletionItem, CompletionItemKind, CompletionResponse,
     CompletionTriggerKind, Diagnostic, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
@@ -10,6 +11,7 @@ use tower_lsp::lsp_types::{
     ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
 };
 use tower_lsp::{lsp_types, Client, LanguageServer, LspService, Server};
+use tracing::warn;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug)]
@@ -85,35 +87,64 @@ impl LanguageServer for Backend {
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         debug!("doc opened {}", params.text_document.uri);
+        document_store::set_stored_document(
+            params.text_document.uri,
+            params.text_document.text.clone(),
+        );
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         info!("doc changed {}", params.text_document.uri);
 
-        // Parse the pom file
-        // Deermine the line the change occured on
-        // Is it on the versoin line?
-        // Offer a list of suggestoins
+        document_store::set_stored_document(
+            params.text_document.uri,
+            params.content_changes[0].text.clone(),
+        );
     }
 
     async fn completion(
         &self,
         params: lsp_types::CompletionParams,
     ) -> Result<Option<lsp_types::CompletionResponse>> {
-        match params.context {
-            Some(CompletionContext {
-                trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
-                ..
-            })
-            | Some(CompletionContext {
-                trigger_kind: CompletionTriggerKind::INVOKED,
-                ..
-            }) => Ok(Some(CompletionResponse::Array(self.get_completion_items()))),
-            _ => Ok(None),
+        let url = params.text_document_position.text_document.uri;
+
+        match document_store::get_stored_document(&url) {
+            Some(document) => match params.context {
+                Some(CompletionContext {
+                    trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
+                    ..
+                })
+                | Some(CompletionContext {
+                    trigger_kind: CompletionTriggerKind::INVOKED,
+                    ..
+                }) => {
+                    let line_position = params.text_document_position.position.line;
+
+                    if pom::parser::is_editing_version(&document, line_position as usize) {
+                        match pom::parser::get_purl(&document, line_position as usize) {
+                            Some(purl) => {
+                                info!("PURL: {:?}", purl);
+                                vulnerability_server::get_version_information_for_purl(&purl).await;
+                                Ok(Some(CompletionResponse::Array(self.get_completion_items())))
+                            }
+                            None => todo!(),
+                        }
+                    } else {
+                        Ok(None)
+                    }
+                }
+                _ => Ok(None),
+            },
+            None => {
+                warn!("Document not found");
+                // TODO Should probably send back an error as the document should always be known
+                Ok(None)
+            }
         }
     }
 }
 
+// TODO Add arguments so that tracing can be configured and also to pass `stdio`
 #[tokio::main]
 async fn main() {
     let log_file = File::create("/tmp/trace.log").expect("should create trace file");

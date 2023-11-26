@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
+
+use crate::Purl;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 struct Project {
@@ -18,19 +22,48 @@ struct Dependencies {
     pub dependency: Vec<Dependency>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 struct Dependency {
     #[serde(rename = "groupId")]
     pub group_id: String,
     #[serde(rename = "artifactId")]
     pub artifact_id: String,
-    pub version: String,
+    pub version: Option<String>,
 }
 
-fn to_pom(content: &str) -> anyhow::Result<Project> {
-    let project: Project = serde_xml_rs::from_str(content)?;
-    Ok(project)
+#[derive(Debug, PartialEq)]
+struct DependencyRange {
+    pub start: usize,
+    pub end: Option<usize>,
 }
+
+// fn find_dependency_on_line(
+//     dependencies: &HashMap<DependencyRange, Dependency>,
+//     line: usize,
+// ) -> Option<&Dependency> {
+//     dependencies
+//         .iter()
+//         .find(|(range, _)| line >= range.start && line <= range.end)
+//         .map(|(_, dependency)| dependency)
+// }
+
+fn to_project(content: &str) -> anyhow::Result<Project> {
+    Ok(serde_xml_rs::from_str::<Project>(content)?)
+}
+
+pub fn is_editing_version(content: &str, line: usize) -> bool {
+    content
+        .lines()
+        .nth(line)
+        .unwrap_or_default()
+        .contains("<version>")
+}
+
+pub fn get_purl(document: &String, line_position: usize) -> Option<Purl> {
+    todo!()
+}
+
+// fn to_pom(content: &str) -> anyhow::Result<HashMap<Dependency, DependencyRange>> {}
 
 #[cfg(test)]
 mod test {
@@ -67,7 +100,7 @@ mod test {
 
             </project>
             "#;
-        let project = to_pom(content).unwrap();
+        let project = to_project(content).unwrap();
 
         assert_eq!(project.group_id, "com.example");
         assert_eq!(project.artifact_id, "demo");
@@ -77,10 +110,16 @@ mod test {
         assert_eq!(project.dependencies.dependency.len(), 2);
         assert_eq!(project.dependencies.dependency[0].group_id, "junit");
         assert_eq!(project.dependencies.dependency[0].artifact_id, "junit");
-        assert_eq!(project.dependencies.dependency[0].version, "4.8.2");
+        assert_eq!(
+            project.dependencies.dependency[0].version,
+            Some("4.8.2".to_string())
+        );
 
         assert_eq!(project.dependencies.dependency[1].group_id, "test");
         assert_eq!(project.dependencies.dependency[1].artifact_id, "foo");
-        assert_eq!(project.dependencies.dependency[1].version, "1.0.0");
+        assert_eq!(
+            project.dependencies.dependency[1].version,
+            Some("1.0.0".to_string())
+        );
     }
 }
