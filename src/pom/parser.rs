@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
 
 use crate::Purl;
 
@@ -47,29 +46,18 @@ impl From<Dependency> for Purl {
     }
 }
 
-// fn find_dependency_on_line(
-//     dependencies: &HashMap<DependencyRange, Dependency>,
-//     line: usize,
-// ) -> Option<&Dependency> {
-//     dependencies
-//         .iter()
-//         .find(|(range, _)| line >= range.start && line <= range.end)
-//         .map(|(_, dependency)| dependency)
-// }
-
 fn to_project(content: &str) -> anyhow::Result<Project> {
     Ok(serde_xml_rs::from_str::<Project>(content)?)
 }
 
-// fn to_pom(content: &str) -> anyhow::Result<HashMap<Dependency, DependencyRange>> {
-//     let lines = content.lines();
-//
-//     Ok(dependencies)
-// }
-
 pub fn is_editing_version(document: &str, line_position: usize) -> bool {
     let lines = document.lines().collect::<Vec<&str>>();
     let line = lines.get(line_position).unwrap();
+
+    debug!(
+        "Checking if line {} contains version: {}",
+        line_position, line
+    );
     line.contains("<version>") && line.contains("</version>")
 }
 
@@ -87,6 +75,8 @@ pub fn get_purl(document: &str, line_position: usize) -> Option<Purl> {
         }
     }
 
+    debug!("Dependency range: {} - {}", dep_start, dep_end);
+
     let dependency_scope = lines
         .into_iter()
         .skip(dep_start)
@@ -97,7 +87,7 @@ pub fn get_purl(document: &str, line_position: usize) -> Option<Purl> {
     match serde_xml_rs::from_str::<Dependency>(dependency_scope.as_str()) {
         Ok(dep) => Some(dep.into()),
         Err(err) => {
-            eprintln!("{}", err);
+            warn!("Failed to parse dependency: {}", err);
             None
         }
     }

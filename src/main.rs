@@ -1,5 +1,5 @@
 use iq_lsp::lsp::document_store::{self};
-use iq_lsp::{pom, vulnerability_server};
+use iq_lsp::{lsp, pom, vulnerability_server};
 use log::{debug, info};
 use std::fs::File;
 use std::sync::Mutex;
@@ -22,31 +22,6 @@ struct Backend {
 impl Backend {
     pub fn new(client: Client) -> Self {
         Backend { client }
-    }
-
-    fn get_completion_items(&self) -> Vec<CompletionItem> {
-        vec![
-            lsp_types::CompletionItem {
-                label: "1.0.1".to_string(),
-                kind: Some(CompletionItemKind::VALUE),
-                detail: Some("Detail text goes here".to_string()),
-                documentation: Some(Documentation::String("Documentation message goes here that can possibly demonstrate some of hte vulnerability information".to_string())),
-                deprecated: None,
-                preselect: None,
-                sort_text: None,
-                filter_text: None,
-                insert_text: None,
-                insert_text_format: None,
-                text_edit: None,
-                additional_text_edits: None,
-                commit_characters: None,
-                command: None,
-                data: None,
-                tags: None,
-                label_details: None,
-                insert_text_mode: None,
-            },
-        ]
     }
 }
 
@@ -121,11 +96,14 @@ impl LanguageServer for Backend {
                     let line_position = params.text_document_position.position.line;
 
                     if pom::parser::is_editing_version(&document, line_position as usize) {
+                        debug!("Fetching purl");
                         match pom::parser::get_purl(&document, line_position as usize) {
                             Some(purl) => {
                                 info!("PURL: {:?}", purl);
-                                vulnerability_server::get_version_information_for_purl(&purl).await;
-                                Ok(Some(CompletionResponse::Array(self.get_completion_items())))
+                                let versions_available =
+                                    vulnerability_server::get_version_information_for_purl(&purl)
+                                        .await;
+                                Ok(Some(lsp::build_response(versions_available)))
                             }
                             None => todo!(),
                         }
