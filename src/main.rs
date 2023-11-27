@@ -1,5 +1,5 @@
 use iq_lsp::lsp::document_store::{self};
-use iq_lsp::{lsp, pom, vulnerability_server};
+use iq_lsp::{lsp, pom, vulnerability_server, Purl};
 use log::{debug, info};
 use std::fs::File;
 use std::sync::Mutex;
@@ -63,9 +63,33 @@ impl LanguageServer for Backend {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         debug!("doc opened {}", params.text_document.uri);
         document_store::set_stored_document(
-            params.text_document.uri,
+            params.text_document.uri.clone(),
             params.text_document.text.clone(),
         );
+
+        debug!("Calculating purls");
+
+        let ranged_purls =
+            pom::parser::calculate_dependencies_with_range(&params.text_document.text);
+
+        debug!("Purls: {:?}", ranged_purls);
+
+        let purls: Vec<Purl> = ranged_purls
+            .iter()
+            .map(|ranged| ranged.purl.clone())
+            .collect();
+
+        let vulnerabilities =
+            vulnerability_server::get_vulnerability_information_for_purls(purls).await;
+
+        debug!("Vulnerabilities: {:?}", vulnerabilities);
+
+        let disgnostics: Vec<Diagnostic> =
+            pom::parser::calculate_diagnostics_for_vulnerabilities(ranged_purls, vulnerabilities);
+
+        self.client
+            .publish_diagnostics(params.text_document.uri, disgnostics, None)
+            .await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -75,6 +99,19 @@ impl LanguageServer for Backend {
             params.text_document.uri,
             params.content_changes[0].text.clone(),
         );
+
+        match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
+            Ok(dependencies) => {
+                vulnerability_server::get_vulnerability_information_for_purls(
+                    dependencies
+                        .into_iter()
+                        .map(|dep| dep.into())
+                        .collect::<Vec<_>>(),
+                )
+                .await;
+            }
+            Err(err) => debug!("Failed to parse dependencies: {}", err),
+        };
     }
 
     async fn completion(
@@ -103,7 +140,7 @@ impl LanguageServer for Backend {
                                 let versions_available =
                                     vulnerability_server::get_version_information_for_purl(&purl)
                                         .await;
-                                Ok(Some(lsp::build_response(versions_available)))
+                                Ok(Some(lsp::completion::build_response(versions_available)))
                             }
                             None => todo!(),
                         }

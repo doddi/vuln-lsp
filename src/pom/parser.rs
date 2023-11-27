@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
-use tracing::{debug, warn};
+use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
+use tracing::{debug, trace, warn};
 
-use crate::Purl;
+use crate::{vulnerability_server::VulnerabilityInformationResponse, Purl, RangedPurl};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 struct Project {
@@ -17,23 +18,17 @@ struct Project {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
-struct Dependencies {
+pub struct Dependencies {
     pub dependency: Vec<Dependency>,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-struct Dependency {
+pub struct Dependency {
     #[serde(rename = "groupId")]
     pub group_id: String,
     #[serde(rename = "artifactId")]
     pub artifact_id: String,
     pub version: Option<String>,
-}
-
-#[derive(Debug, PartialEq)]
-struct DependencyRange {
-    pub start: usize,
-    pub end: Option<usize>,
 }
 
 impl From<Dependency> for Purl {
@@ -44,6 +39,11 @@ impl From<Dependency> for Purl {
             version: value.version.unwrap(),
         }
     }
+}
+
+pub fn get_dependencies(content: &str) -> anyhow::Result<Vec<Dependency>> {
+    let project = to_project(content)?;
+    Ok(project.dependencies.dependency)
 }
 
 fn to_project(content: &str) -> anyhow::Result<Project> {
@@ -91,6 +91,49 @@ pub fn get_purl(document: &str, line_position: usize) -> Option<Purl> {
             None
         }
     }
+}
+
+pub fn calculate_dependencies_with_range(document: &str) -> Vec<RangedPurl> {
+    let lines = document.lines().collect::<Vec<&str>>();
+
+    let mut dep_start = 0;
+    let mut dep_end = 0;
+    let mut dependencies = Vec::new();
+    for (index, line) in lines.iter().enumerate() {
+        if line.contains("<dependency>") {
+            trace!("Found dependency start at {}", index);
+            dep_start = index;
+        }
+        if line.contains("</dependency>") {
+            trace!("Found dependency end at {}", index);
+            dep_end = index;
+        }
+
+        if dep_start > 0 && dep_end > 0 {
+            trace!("Extracting dependency information");
+            // TODO Bad Bad Bad, need to iterate over a single time
+            let lines_for_extraction = document.lines().collect::<Vec<&str>>();
+            let dependency_scope = lines_for_extraction
+                .into_iter()
+                .skip(dep_start)
+                .take(dep_end - dep_start + 1)
+                .collect::<Vec<&str>>()
+                .join("\n");
+
+            match serde_xml_rs::from_str::<Dependency>(dependency_scope.as_str()) {
+                Ok(dep) => {
+                    trace!("Found dependency: {:?}", dep);
+                    dependencies.push(RangedPurl::new(dep.into(), dep_start + 1, dep_end))
+                }
+                Err(err) => {
+                    warn!("Failed to parse dependency: {}", err);
+                }
+            }
+            dep_start = 0;
+            dep_end = 0;
+        }
+    }
+    dependencies
 }
 
 #[cfg(test)]
@@ -190,4 +233,42 @@ mod test {
         assert_eq!(purl.artifact_id, "bar");
         assert_eq!(purl.version, "1.0.0");
     }
+}
+
+pub fn calculate_diagnostics_for_vulnerabilities(
+    ranged_purls: Vec<RangedPurl>,
+    vulnerabilities: Vec<VulnerabilityInformationResponse>,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for vulnerability in vulnerabilities {
+        for ranged_purl in &ranged_purls {
+            if ranged_purl.purl.version == vulnerability.purl.version
+                && ranged_purl.purl.group_id == vulnerability.purl.group_id
+                && ranged_purl.purl.artifact_id == vulnerability.purl.artifact_id
+            {
+                let diagnostic = Diagnostic {
+                    range: tower_lsp::lsp_types::Range {
+                        start: tower_lsp::lsp_types::Position {
+                            line: ranged_purl.range.start as u32,
+                            character: 0,
+                        },
+                        end: tower_lsp::lsp_types::Position {
+                            line: ranged_purl.range.end as u32,
+                            character: 0,
+                        },
+                    },
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: None,
+                    code_description: None,
+                    source: Some("vulnerability".to_string()),
+                    message: vulnerability.versions[0].information.summary.clone(),
+                    related_information: None,
+                    tags: None,
+                    data: None,
+                };
+                diagnostics.push(diagnostic);
+            }
+        }
+    }
+    diagnostics
 }

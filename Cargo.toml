@@ -16,3 +16,4 @@ serde-xml-rs = "0.6.0"
 anyhow = "1.0.75"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+futures = "0.3.29"
