@@ -1,9 +1,9 @@
-package com.github.doddi.iq-lsp.services
+package com.github.doddi.vulnlsp.services
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
-import com.github.doddi.anathema.MyBundle
+import com.github.doddi.vulnlsp.MyBundle
 
 @Service(Service.Level.PROJECT)
 class MyProjectService(project: Project) {

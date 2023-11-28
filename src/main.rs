@@ -1,5 +1,3 @@
-use iq_lsp::lsp::document_store::{self};
-use iq_lsp::{lsp, pom, vulnerability_server, Purl};
 use log::{debug, info};
 use std::fs::File;
 use std::sync::Mutex;
@@ -13,6 +11,8 @@ use tower_lsp::lsp_types::{
 use tower_lsp::{lsp_types, Client, LanguageServer, LspService, Server};
 use tracing::warn;
 use tracing_subscriber::EnvFilter;
+use vuln_lsp::lsp::document_store::{self};
+use vuln_lsp::{lsp, pom, vulnerability_server, Purl};
 
 #[derive(Debug)]
 struct Backend {
@@ -32,7 +32,7 @@ impl LanguageServer for Backend {
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
-                name: "iq-lsp".to_string(),
+                name: "vuln-lsp".to_string(),
                 version: None,
             }),
             capabilities: ServerCapabilities {

@@ -235,6 +235,16 @@ mod test {
     }
 }
 
+fn convert_severity(
+    vulnerability: &VulnerabilityInformationResponse,
+) -> Option<DiagnosticSeverity> {
+    match vulnerability.versions[0].severity {
+        crate::vulnerability_server::Severity::High => Some(DiagnosticSeverity::ERROR),
+        crate::vulnerability_server::Severity::Medium => Some(DiagnosticSeverity::WARNING),
+        crate::vulnerability_server::Severity::Low => Some(DiagnosticSeverity::INFORMATION),
+        crate::vulnerability_server::Severity::None => None,
+    }
+}
 pub fn calculate_diagnostics_for_vulnerabilities(
     ranged_purls: Vec<RangedPurl>,
     vulnerabilities: Vec<VulnerabilityInformationResponse>,
@@ -257,7 +267,7 @@ pub fn calculate_diagnostics_for_vulnerabilities(
                             character: 0,
                         },
                     },
-                    severity: Some(DiagnosticSeverity::WARNING),
+                    severity: convert_severity(&vulnerability),
                     code: None,
                     code_description: None,
                     source: Some("vulnerability".to_string()),

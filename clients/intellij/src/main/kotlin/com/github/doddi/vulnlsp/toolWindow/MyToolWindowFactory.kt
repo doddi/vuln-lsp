@@ -1,4 +1,4 @@
-package com.github.doddi.iq-lsp.toolWindow
+package com.github.doddi.vulnlsp.toolWindow
 
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
@@ -8,8 +8,8 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.content.ContentFactory
-import com.github.doddi.iq-lsp.MyBundle
-import com.github.dodiq-lsp.services.MyProjectService
+import com.github.doddi.vulnlsp.MyBundle
+import com.github.doddi.vulnlsp.services.MyProjectService
 import javax.swing.JButton
 
 

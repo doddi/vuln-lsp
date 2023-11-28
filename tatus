@@ -1,0 +1,324 @@
+[1mdiff --git a/Cargo.toml b/Cargo.toml[m
+[1mindex d98bddf..5485fe7 100644[m
+[1m--- a/Cargo.toml[m
+[1m+++ b/Cargo.toml[m
+[36m@@ -1,5 +1,5 @@[m
+ [package][m
+[31m-name = "iq-lsp"[m
+[32m+[m[32mname = "vuln-lsp"[m
+ version = "0.1.0"[m
+ edition = "2021"[m
+ [m
+[1mdiff --git a/README.md b/README.md[m
+[1mindex 49d7f38..44e7893 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -1,8 +1,8 @@[m
+[31m-# IQ Language Server Protocol[m
+[32m+[m[32m# Vulnerability Language Server Protocol[m
+ [m
+[31m-This is a simple language server for Sonatype IQ products.[m
+[32m+[m[32mThis is a simple language server for Sonatype vuln products.[m
+ [m
+[31m-Once built, ensure that the `iq-lsp` binary is in your `$PATH`.[m
+[32m+[m[32mOnce built, ensure that the `vuln-lsp` binary is in your `$PATH`.[m
+ [m
+ ## Editors[m
+ [m
+[36m@@ -15,8 +15,8 @@[m [mvim.api.nvim_create_autocmd("BufEnter", {[m
+   pattern = "pom.xml",[m
+   callback = function()[m
+     vim.lsp.start({[m
+[31m-      name = "iq-lsp",[m
+[31m-      cmd = { "iq-lsp" },[m
+[32m+[m[32m      name = "vuln-lsp",[m
+[32m+[m[32m      cmd = { "vuln-lsp" },[m
+       root_dir = vim.fs.dirname(vim.fs.find({ "pom.xml" }, { upward = true })[1]),[m
+     })[m
+   end,[m
+[36m@@ -58,7 +58,6 @@[m [mwith the following contents:[m
+ }[m
+ [m
+ ```[m
+[31m-[m
+ Run the debugger and open the provided `test.anat` file to test the lsp.[m
+ [m
+ ### Intellij[m
+[1mdiff --git a/clients/intellij/README.md b/clients/intellij/README.md[m
+[1mindex 4ad3fd0..dcf6222 100644[m
+[1m--- a/clients/intellij/README.md[m
+[1m+++ b/clients/intellij/README.md[m
+[36m@@ -1,8 +1,8 @@[m
+[31m-# IQ-lsp[m
+[32m+[m[32m# Vuln-lsp[m
+ [m
+ <!-- Plugin description -->[m
+[31m-**IQ IntelliJ plugin** is a plugin that provides LSP information for[m
+[31m-IQ instances.[m
+[32m+[m[32m**Vulnerability IntelliJ plugin** is a plugin that provides LSP information for[m
+[32m+[m[32mvulnerability resources.[m
+ [m
+ <!-- Plugin description end -->[m
+ [m
+[36m@@ -10,7 +10,7 @@[m [mIQ instances.[m
+ [m
+ - Using the IDE built-in plugin system:[m
+   [m
+[31m-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "iq-lsp"</kbd> >[m
+[32m+[m[32m  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "vuln-lsp"</kbd> >[m
+   <kbd>Install</kbd>[m
+   [m
+ - Manually:[m
+[1mdiff --git a/clients/intellij/gradle.properties b/clients/intellij/gradle.properties[m
+[1mindex 84b913b..4bc4e7b 100644[m
+[1m--- a/clients/intellij/gradle.properties[m
+[1m+++ b/clients/intellij/gradle.properties[m
+[36m@@ -1,8 +1,8 @@[m
+ # IntelliJ Platform Artifacts Repositories -> https://plugins.jetbrains.com/docs/intellij/intellij-artifacts.html[m
+ [m
+ pluginGroup = com.github.doddi[m
+[31m-pluginName = iq-lsp [m
+[31m-pluginRepositoryUrl = https://github.com/doddi/iq-lsp[m
+[32m+[m[32mpluginName = vuln-lsp[m
+[32m+[m[32mpluginRepositoryUrl = https://github.com/doddi/vuln-lsp[m
+ # SemVer format -> https://semver.org[m
+ pluginVersion = 0.0.1[m
+ [m
+[1mdiff --git a/clients/intellij/settings.gradle.kts b/clients/intellij/settings.gradle.kts[m
+[1mindex aa34e88..f5f34d9 100644[m
+[1m--- a/clients/intellij/settings.gradle.kts[m
+[1m+++ b/clients/intellij/settings.gradle.kts[m
+[36m@@ -2,4 +2,4 @@[m [mplugins {[m
+     id("org.gradle.toolchains.foojay-resolver-convention") version "0.7.0"[m
+ }[m
+ [m
+[31m-rootProject.name = "iq-lsp"[m
+[32m+[m[32mrootProject.name = "vuln-lsp"[m
+[1mdiff --git a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/MyBundle.kt b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/MyBundle.kt[m
+[1mindex bd7fbb8..e86ca8a 100644[m
+[1m--- a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/MyBundle.kt[m
+[1m+++ b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/MyBundle.kt[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-package com.github.doddi.vuln[m
+[32m+[m[32mpackage com.github.doddi.vulnlsp[m
+ [m
+ import com.intellij.DynamicBundle[m
+ import org.jetbrains.annotations.NonNls[m
+[1mdiff --git a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/listeners/MyApplicationActivationListener.kt b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/listeners/MyApplicationActivationListener.kt[m
+[1mindex 69262e7..1e6beb2 100644[m
+[1m--- a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/listeners/MyApplicationActivationListener.kt[m
+[1m+++ b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/listeners/MyApplicationActivationListener.kt[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-package com.github.doddi.vuln.listeners[m
+[32m+[m[32mpackage com.github.doddi.vulnlsp.listeners[m
+ [m
+ import com.intellij.openapi.application.ApplicationActivationListener[m
+ import com.intellij.openapi.diagnostic.thisLogger[m
+[1mdiff --git a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/lsp/VulnLspServerDescriptor.kt b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/lsp/VulnLspServerDescriptor.kt[m
+[1mindex 216e72e..50b7ccb 100644[m
+[1m--- a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/lsp/VulnLspServerDescriptor.kt[m
+[1m+++ b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/lsp/VulnLspServerDescriptor.kt[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-package com.github.doddi.vuln.lsp[m
+[32m+[m[32mpackage com.github.doddi.vulnlsp.lsp[m
+ [m
+ import com.intellij.execution.configurations.GeneralCommandLine[m
+ import com.intellij.lang.annotation.HighlightSeverity[m
+[36m@@ -8,12 +8,12 @@[m [mimport com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor[m
+ import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport[m
+ import org.eclipse.lsp4j.Diagnostic[m
+ [m
+[31m-class IqLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor(project, "IQ") {[m
+[32m+[m[32mclass VulnLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor(project, "VulnLsp") {[m
+     override fun createCommandLine(): GeneralCommandLine {[m
+         return GeneralCommandLine().apply {[m
+             withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)[m
+             withCharset(Charsets.UTF_8)[m
+[31m-            withExePath("iq-lsp")[m
+[32m+[m[32m            withExePath("vuln-lsp")[m
+         }[m
+     }[m
+ [m
+[1mdiff --git a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/lsp/VulnLspServerSupportProvider.kt b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/lsp/VulnLspServerSupportProvider.kt[m
+[1mindex 20346e3..9370a8a 100644[m
+[1m--- a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/lsp/VulnLspServerSupportProvider.kt[m
+[1m+++ b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/lsp/VulnLspServerSupportProvider.kt[m
+[36m@@ -4,7 +4,7 @@[m [mimport com.intellij.openapi.project.Project[m
+ import com.intellij.openapi.vfs.VirtualFile[m
+ import com.intellij.platform.lsp.api.LspServerSupportProvider[m
+ [m
+[31m-class IqLspServerSupportProvider : LspServerSupportProvider {[m
+[32m+[m[32mclass VulnLspServerSupportProvider : LspServerSupportProvider {[m
+     override fun fileOpened(project: Project, file: VirtualFile, serverStarter: LspServerSupportProvider.LspServerStarter) {[m
+         if (file.extension != "xml") return[m
+ [m
+[1mdiff --git a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/services/MyProjectService.kt b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/services/MyProjectService.kt[m
+[1mindex 3e4583d..9fad1b6 100644[m
+[1m--- a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/services/MyProjectService.kt[m
+[1m+++ b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/services/MyProjectService.kt[m
+[36m@@ -1,9 +1,9 @@[m
+[31m-package com.github.doddi.vuln.services[m
+[32m+[m[32mpackage com.github.doddi.vulnlsp.services[m
+ [m
+ import com.intellij.openapi.components.Service[m
+ import com.intellij.openapi.diagnostic.thisLogger[m
+ import com.intellij.openapi.project.Project[m
+[31m-import com.github.doddi.vuln.MyBundle[m
+[32m+[m[32mimport com.github.doddi.vulnlsp.MyBundle[m
+ [m
+ @Service(Service.Level.PROJECT)[m
+ class MyProjectService(project: Project) {[m
+[1mdiff --git a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/toolWindow/MyToolWindowFactory.kt b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/toolWindow/MyToolWindowFactory.kt[m
+[1mindex d35f4f4..ee4f734 100644[m
+[1m--- a/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/toolWindow/MyToolWindowFactory.kt[m
+[1m+++ b/clients/intellij/src/main/kotlin/com/github/doddi/vulnlsp/toolWindow/MyToolWindowFactory.kt[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-package com.github.doddi.vuln.toolWindow[m
+[32m+[m[32mpackage com.github.doddi.vulnlsp.toolWindow[m
+ [m
+ import com.intellij.openapi.components.service[m
+ import com.intellij.openapi.diagnostic.thisLogger[m
+[36m@@ -8,8 +8,8 @@[m [mimport com.intellij.openapi.wm.ToolWindowFactory[m
+ import com.intellij.ui.components.JBLabel[m
+ import com.intellij.ui.components.JBPanel[m
+ import com.intellij.ui.content.ContentFactory[m
+[31m-import com.github.doddi.vuln.MyBundle[m
+[31m-import com.github.doddi.vuln.services.MyProjectService[m
+[32m+[m[32mimport com.github.doddi.vulnlsp.MyBundle[m
+[32m+[m[32mimport com.github.doddi.vulnlsp.services.MyProjectService[m
+ import javax.swing.JButton[m
+ [m
+ [m
+[1mdiff --git a/clients/intellij/src/main/resources/META-INF/plugin.xml b/clients/intellij/src/main/resources/META-INF/plugin.xml[m
+[1mindex b9cd9f3..14a4e3c 100644[m
+[1m--- a/clients/intellij/src/main/resources/META-INF/plugin.xml[m
+[1m+++ b/clients/intellij/src/main/resources/META-INF/plugin.xml[m
+[36m@@ -13,7 +13,7 @@[m
+ <!--        <toolWindow factoryClass="com.github.doddi.anathema.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>-->[m
+ [m
+         <!-- LSP-->[m
+[31m-        <platform.lsp.serverSupportProvider implementation="com.github.doddi.anathema.lsp.AnathemaLspServerSupportProvider"/>[m
+[32m+[m[32m        <platform.lsp.serverSupportProvider implementation="com.github.doddi.vulnlsp.lsp.VulnLspServerSupportProvider"/>[m
+     </extensions>[m
+ [m
+ <!--    <applicationListeners>-->[m
+[1mdiff --git a/clients/intellij/src/test/kotlin/com/github/doddi/anathema/MyPluginTest.kt b/clients/intellij/src/test/kotlin/com/github/doddi/anathema/MyPluginTest.kt[m
+[1mindex 1762b2c..3fc0725 100644[m
+[1m--- a/clients/intellij/src/test/kotlin/com/github/doddi/anathema/MyPluginTest.kt[m
+[1m+++ b/clients/intellij/src/test/kotlin/com/github/doddi/anathema/MyPluginTest.kt[m
+[36m@@ -6,7 +6,7 @@[m [mimport com.intellij.psi.xml.XmlFile[m
+ import com.intellij.testFramework.TestDataPath[m
+ import com.intellij.testFramework.fixtures.BasePlatformTestCase[m
+ import com.intellij.util.PsiErrorElementUtil[m
+[31m-import com.github.doddi.anathema.services.MyProjectService[m
+[32m+[m[32mimport com.github.doddi.vulnlsp.services.MyProjectService[m
+ [m
+ @TestDataPath("\$CONTENT_ROOT/src/test/testData")[m
+ class MyPluginTest : BasePlatformTestCase() {[m
+[1mdiff --git a/clients/vscode/extension.js b/clients/vscode/extension.js[m
+[1mindex 0cd13bd..b0080ce 100644[m
+[1m--- a/clients/vscode/extension.js[m
+[1m+++ b/clients/vscode/extension.js[m
+[36m@@ -8,10 +8,10 @@[m [mmodule.exports = {[m
+     /** @type {import("vscode-languageclient/node").ServerOptions} */[m
+     const serverOptions = {[m
+       run: {[m
+[31m-        command: "iq-lsp",[m
+[32m+[m[32m        command: "vuln-lsp",[m
+       },[m
+       debug: {[m
+[31m-        command: "iq-lsp",[m
+[32m+[m[32m        command: "vuln-lsp",[m
+         // args: ["--file", `${tmpdir}/lsp.log`, "--level", "TRACE"],[m
+       },[m
+     };[m
+[36m@@ -22,8 +22,8 @@[m [mmodule.exports = {[m
+     };[m
+ [m
+     const client = new LanguageClient([m
+[31m-      "iq-lsp",[m
+[31m-      "IQ Language Server",[m
+[32m+[m[32m      "vuln-lsp",[m
+[32m+[m[32m      "Vulnerability Language Server",[m
+       serverOptions,[m
+       clientOptions[m
+     );[m
+[1mdiff --git a/clients/vscode/package.json b/clients/vscode/package.json[m
+[1mindex ccde901..91807fb 100644[m
+[1m--- a/clients/vscode/package.json[m
+[1m+++ b/clients/vscode/package.json[m
+[36m@@ -1,13 +1,13 @@[m
+ {[m
+[31m-  "name": "iq-lsp",[m
+[31m-  "description": "Language Server for IQ",[m
+[32m+[m[32m  "name": "vuln-lsp",[m
+[32m+[m[32m  "description": "Language Server for Vulnerability information",[m
+   "version": "0.0.1",[m
+   "contributors": [[m
+     "doddi"[m
+   ],[m
+   "repository": {[m
+     "type": "git",[m
+[31m-    "url": "https://github.com/doddi/iq-lsp"[m
+[32m+[m[32m    "url": "https://github.com/doddi/vuln-lsp"[m
+   },[m
+   "engines": {[m
+     "vscode": "^1.74.0"[m
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex 5dce0b8..c73b1e1 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -1,5 +1,3 @@[m
+[31m-use iq_lsp::lsp::document_store::{self};[m
+[31m-use iq_lsp::{lsp, pom, vulnerability_server, Purl};[m
+ use log::{debug, info};[m
+ use std::fs::File;[m
+ use std::sync::Mutex;[m
+[36m@@ -13,6 +11,8 @@[m [muse tower_lsp::lsp_types::{[m
+ use tower_lsp::{lsp_types, Client, LanguageServer, LspService, Server};[m
+ use tracing::warn;[m
+ use tracing_subscriber::EnvFilter;[m
+[32m+[m[32muse vuln_lsp::lsp::document_store::{self};[m
+[32m+[m[32muse vuln_lsp::{lsp, pom, vulnerability_server, Purl};[m
+ [m
+ #[derive(Debug)][m
+ struct Backend {[m
+[36m@@ -32,7 +32,7 @@[m [mimpl LanguageServer for Backend {[m
+ [m
+         Ok(InitializeResult {[m
+             server_info: Some(ServerInfo {[m
+[31m-                name: "iq-lsp".to_string(),[m
+[32m+[m[32m                name: "vuln-lsp".to_string(),[m
+                 version: None,[m
+             }),[m
+             capabilities: ServerCapabilities {[m
+[1mdiff --git a/src/pom/parser.rs b/src/pom/parser.rs[m
+[1mindex b348ef2..bea8dae 100644[m
+[1m--- a/src/pom/parser.rs[m
+[1m+++ b/src/pom/parser.rs[m
+[36m@@ -235,6 +235,16 @@[m [mmod test {[m
+     }[m
+ }[m
+ [m
+[32m+[m[32mfn convert_severity([m
+[32m+[m[32m    vulnerability: &VulnerabilityInformationResponse,[m
+[32m+[m[32m) -> Option<DiagnosticSeverity> {[m
+[32m+[m[32m    match vulnerability.versions[0].severity {[m
+[32m+[m[32m        crate::vulnerability_server::Severity::High => Some(DiagnosticSeverity::ERROR),[m
+[32m+[m[32m        crate::vulnerability_server::Severity::Medium => Some(DiagnosticSeverity::WARNING),[m
+[32m+[m[32m        crate::vulnerability_server::Severity::Low => Some(DiagnosticSeverity::INFORMATION),[m
+[32m+[m[32m        crate::vulnerability_server::Severity::None => None,[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+ pub fn calculate_diagnostics_for_vulnerabilities([m
+     ranged_purls: Vec<RangedPurl>,[m
+     vulnerabilities: Vec<VulnerabilityInformationResponse>,[m
+[36m@@ -257,7 +267,7 @@[m [mpub fn calculate_diagnostics_for_vulnerabilities([m
+                             character: 0,[m
+                         },[m
+                     },[m
+[31m-                    severity: Some(DiagnosticSeverity::WARNING),[m
+[32m+[m[32m                    severity: convert_severity(&vulnerability),[m
+                     code: None,[m
+                     code_description: None,[m
+                     source: Some("vulnerability".to_string()),[m

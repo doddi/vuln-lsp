@@ -1,4 +1,4 @@
-package com.github.doddi.iq-lsp.listeners
+package com.github.doddi.vulnlsp.listeners
 
 import com.intellij.openapi.application.ApplicationActivationListener
 import com.intellij.openapi.diagnostic.thisLogger

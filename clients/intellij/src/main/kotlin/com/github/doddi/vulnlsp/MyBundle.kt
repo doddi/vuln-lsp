@@ -1,4 +1,4 @@
-package com.github.doddi.iq-lsp
+package com.github.doddi.vulnlsp
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.NonNls

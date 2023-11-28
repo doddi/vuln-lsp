@@ -1,13 +1,13 @@
 {
-  "name": "iq-lsp",
-  "description": "Language Server for IQ",
+  "name": "vuln-lsp",
+  "description": "Language Server for Vulnerability information",
   "version": "0.0.1",
   "contributors": [
     "doddi"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/doddi/iq-lsp"
+    "url": "https://github.com/doddi/vuln-lsp"
   },
   "engines": {
     "vscode": "^1.74.0"
