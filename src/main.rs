@@ -14,7 +14,8 @@ use tracing::warn;
 use tracing_subscriber::EnvFilter;
 use vuln_lsp::lsp::diagnostics;
 use vuln_lsp::lsp::document_store::{self};
-use vuln_lsp::{lsp, pom, server, Purl};
+use vuln_lsp::server::purl::Purl;
+use vuln_lsp::{lsp, pom, server};
 
 #[derive(Debug)]
 struct Backend {
@@ -94,7 +95,7 @@ impl LanguageServer for Backend {
             diagnostics::calculate_diagnostics_for_vulnerabilities(ranged_purls, vulnerabilities);
 
         self.client
-            .publish_diagnostics(params.text_document.uri, disgnostics, None)
+            .publish_diagnostics(&params.text_document.uri, disgnostics, None)
             .await;
     }
 
@@ -146,8 +147,10 @@ impl LanguageServer for Backend {
                             Some(purl) => {
                                 info!("PURL: {:?}", purl);
                                 let versions_available =
-                                    server::get_version_information_for_purl(&purl).await;
-                                Ok(Some(lsp::completion::build_response(versions_available)))
+                                    server::get_vulnerability_information_for_purls(vec![purl])
+                                        .await;
+                                let first_response = versions_available[0].clone();
+                                Ok(Some(lsp::completion::build_response(first_response)))
                             }
                             None => todo!(),
                         }

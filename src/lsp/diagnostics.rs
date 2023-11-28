@@ -1,9 +1,7 @@
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
-use crate::{
-    server::{self, VulnerabilityInformationResponse},
-    RangedPurl,
-};
+use crate::server::purl::RangedPurl;
+use crate::server::{self, VulnerabilityInformationResponse};
 
 impl From<server::Severity> for Option<DiagnosticSeverity> {
     fn from(value: server::Severity) -> Self {

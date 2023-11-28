@@ -7,8 +7,8 @@ impl From<VulnerabilityVersionInfo> for CompletionItem {
         CompletionItem {
             label: value.version,
             kind: Some(CompletionItemKind::TEXT),
-            detail: Some(value.information.detail),
-            documentation: Some(Documentation::String(value.information.summary)),
+            detail: Some(value.information.summary),
+            documentation: Some(Documentation::String(value.information.detail)),
             deprecated: None,
             preselect: None,
             sort_text: None,
