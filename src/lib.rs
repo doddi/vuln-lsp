@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod lsp;
 pub mod pom;
-pub mod vulnerability_server;
+pub mod server;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Purl {

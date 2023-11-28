@@ -23,9 +23,9 @@ class VulnLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor
 
     override val lspCompletionSupport = null
 
-
-    override val lspDiagnosticsSupport: LspDiagnosticsSupport?
-        get() = MyLspDiagnosticsSupport()
+//
+//    override val lspDiagnosticsSupport: LspDiagnosticsSupport?
+//        get() = MyLspDiagnosticsSupport()
 
 }
 

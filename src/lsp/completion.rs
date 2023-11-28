@@ -1,6 +1,6 @@
 use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, CompletionResponse, Documentation};
 
-use crate::vulnerability_server::{VulnerabilityInformationResponse, VulnerabilityVersionInfo};
+use crate::server::{VulnerabilityInformationResponse, VulnerabilityVersionInfo};
 
 impl From<VulnerabilityVersionInfo> for CompletionItem {
     fn from(value: VulnerabilityVersionInfo) -> Self {

@@ -1,27 +1,33 @@
 use log::{debug, info};
 use std::fs::File;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::{
-    CompletionContext, CompletionItem, CompletionItemKind, CompletionResponse,
-    CompletionTriggerKind, Diagnostic, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    Documentation, InitializeParams, InitializeResult, InitializedParams, Range,
-    ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+use tower_lsp::{
+    lsp_types::{
+        self, CompletionContext, CompletionTriggerKind, Diagnostic, DidChangeTextDocumentParams,
+        DidOpenTextDocumentParams, InitializeParams, InitializeResult, InitializedParams,
+        ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind,
+    },
+    Client, LanguageServer, LspService, Server,
 };
-use tower_lsp::{lsp_types, Client, LanguageServer, LspService, Server};
 use tracing::warn;
 use tracing_subscriber::EnvFilter;
+use vuln_lsp::lsp::diagnostics;
 use vuln_lsp::lsp::document_store::{self};
-use vuln_lsp::{lsp, pom, vulnerability_server, Purl};
+use vuln_lsp::{lsp, pom, server, Purl};
 
 #[derive(Debug)]
 struct Backend {
     client: Client,
+    document_store: Arc<Mutex<document_store::DocumentStore>>,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
-        Backend { client }
+        Backend {
+            client,
+            document_store: Arc::new(Mutex::new(document_store::DocumentStore::default())),
+        }
     }
 }
 
@@ -62,10 +68,11 @@ impl LanguageServer for Backend {
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         debug!("doc opened {}", params.text_document.uri);
-        document_store::set_stored_document(
-            params.text_document.uri.clone(),
-            params.text_document.text.clone(),
-        );
+
+        self.document_store
+            .lock()
+            .unwrap()
+            .insert(&params.text_document.uri, params.text_document.text.clone());
 
         debug!("Calculating purls");
 
@@ -79,13 +86,12 @@ impl LanguageServer for Backend {
             .map(|ranged| ranged.purl.clone())
             .collect();
 
-        let vulnerabilities =
-            vulnerability_server::get_vulnerability_information_for_purls(purls).await;
+        let vulnerabilities = server::get_vulnerability_information_for_purls(purls).await;
 
         debug!("Vulnerabilities: {:?}", vulnerabilities);
 
         let disgnostics: Vec<Diagnostic> =
-            pom::parser::calculate_diagnostics_for_vulnerabilities(ranged_purls, vulnerabilities);
+            diagnostics::calculate_diagnostics_for_vulnerabilities(ranged_purls, vulnerabilities);
 
         self.client
             .publish_diagnostics(params.text_document.uri, disgnostics, None)
@@ -95,14 +101,14 @@ impl LanguageServer for Backend {
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         info!("doc changed {}", params.text_document.uri);
 
-        document_store::set_stored_document(
-            params.text_document.uri,
+        self.document_store.lock().unwrap().insert(
+            &params.text_document.uri,
             params.content_changes[0].text.clone(),
         );
 
         match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
             Ok(dependencies) => {
-                vulnerability_server::get_vulnerability_information_for_purls(
+                server::get_vulnerability_information_for_purls(
                     dependencies
                         .into_iter()
                         .map(|dep| dep.into())
@@ -120,7 +126,9 @@ impl LanguageServer for Backend {
     ) -> Result<Option<lsp_types::CompletionResponse>> {
         let url = params.text_document_position.text_document.uri;
 
-        match document_store::get_stored_document(&url) {
+        let content = self.document_store.lock().unwrap().get(&url);
+
+        match content {
             Some(document) => match params.context {
                 Some(CompletionContext {
                     trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
@@ -138,8 +146,7 @@ impl LanguageServer for Backend {
                             Some(purl) => {
                                 info!("PURL: {:?}", purl);
                                 let versions_available =
-                                    vulnerability_server::get_version_information_for_purl(&purl)
-                                        .await;
+                                    server::get_version_information_for_purl(&purl).await;
                                 Ok(Some(lsp::completion::build_response(versions_available)))
                             }
                             None => todo!(),
