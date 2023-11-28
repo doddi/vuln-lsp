@@ -13,7 +13,7 @@
 <!--        <toolWindow factoryClass="com.github.doddi.anathema.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>-->
 
         <!-- LSP-->
-        <platform.lsp.serverSupportProvider implementation="com.github.doddi.anathema.lsp.AnathemaLspServerSupportProvider"/>
+        <platform.lsp.serverSupportProvider implementation="com.github.doddi.vulnlsp.lsp.VulnLspServerSupportProvider"/>
     </extensions>
 
 <!--    <applicationListeners>-->

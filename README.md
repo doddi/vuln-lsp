@@ -1,8 +1,8 @@
-# IQ Language Server Protocol
+# Vulnerability Language Server Protocol
 
-This is a simple language server for Sonatype IQ products.
+This is a simple language server for Sonatype vuln products.
 
-Once built, ensure that the `iq-lsp` binary is in your `$PATH`.
+Once built, ensure that the `vuln-lsp` binary is in your `$PATH`.
 
 ## Editors
 
@@ -15,8 +15,8 @@ vim.api.nvim_create_autocmd("BufEnter", {
   pattern = "pom.xml",
   callback = function()
     vim.lsp.start({
-      name = "iq-lsp",
-      cmd = { "iq-lsp" },
+      name = "vuln-lsp",
+      cmd = { "vuln-lsp" },
       root_dir = vim.fs.dirname(vim.fs.find({ "pom.xml" }, { upward = true })[1]),
     })
   end,
@@ -58,7 +58,6 @@ with the following contents:
 }
 
 ```
-
 Run the debugger and open the provided `test.anat` file to test the lsp.
 
 ### Intellij

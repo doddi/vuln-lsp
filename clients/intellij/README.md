@@ -1,8 +1,8 @@
-# IQ-lsp
+# Vuln-lsp
 
 <!-- Plugin description -->
-**IQ IntelliJ plugin** is a plugin that provides LSP information for
-IQ instances.
+**Vulnerability IntelliJ plugin** is a plugin that provides LSP information for
+vulnerability resources.
 
 <!-- Plugin description end -->
 
@@ -10,7 +10,7 @@ IQ instances.
 
 - Using the IDE built-in plugin system:
   
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "iq-lsp"</kbd> >
+  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "vuln-lsp"</kbd> >
   <kbd>Install</kbd>
   
 - Manually:

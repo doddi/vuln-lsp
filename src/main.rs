@@ -1,50 +1,33 @@
 use log::{debug, info};
 use std::fs::File;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::lsif::Document;
-use tower_lsp::lsp_types::{
-    CompletionContext, CompletionItem, CompletionItemKind, CompletionResponse,
-    CompletionTriggerKind, Diagnostic, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    Documentation, InitializeParams, InitializeResult, InitializedParams, Range,
-    ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+use tower_lsp::{
+    lsp_types::{
+        self, CompletionContext, CompletionTriggerKind, Diagnostic, DidChangeTextDocumentParams,
+        DidOpenTextDocumentParams, InitializeParams, InitializeResult, InitializedParams,
+        ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind,
+    },
+    Client, LanguageServer, LspService, Server,
 };
-use tower_lsp::{lsp_types, Client, LanguageServer, LspService, Server};
+use tracing::warn;
 use tracing_subscriber::EnvFilter;
+use vuln_lsp::lsp::diagnostics;
+use vuln_lsp::lsp::document_store::{self};
+use vuln_lsp::{lsp, pom, server, Purl};
 
 #[derive(Debug)]
 struct Backend {
     client: Client,
+    document_store: Arc<Mutex<document_store::DocumentStore>>,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
-        Backend { client }
-    }
-
-    fn get_completion_items(&self) -> Vec<CompletionItem> {
-        vec![
-            lsp_types::CompletionItem {
-                label: "1.0.1".to_string(),
-                kind: Some(CompletionItemKind::VALUE),
-                detail: Some("Detail text goes here".to_string()),
-                documentation: Some(Documentation::String("Documentation message goes here that can possibly demonstrate some of hte vulnerability information".to_string())),
-                deprecated: None,
-                preselect: None,
-                sort_text: None,
-                filter_text: None,
-                insert_text: None,
-                insert_text_format: None,
-                text_edit: None,
-                additional_text_edits: None,
-                commit_characters: None,
-                command: None,
-                data: None,
-                tags: None,
-                label_details: None,
-                insert_text_mode: None,
-            },
-        ]
+        Backend {
+            client,
+            document_store: Arc::new(Mutex::new(document_store::DocumentStore::default())),
+        }
     }
 }
 
@@ -55,7 +38,7 @@ impl LanguageServer for Backend {
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
-                name: "iq-lsp".to_string(),
+                name: "vuln-lsp".to_string(),
                 version: None,
             }),
             capabilities: ServerCapabilities {
@@ -85,35 +68,105 @@ impl LanguageServer for Backend {
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         debug!("doc opened {}", params.text_document.uri);
+
+        self.document_store
+            .lock()
+            .unwrap()
+            .insert(&params.text_document.uri, params.text_document.text.clone());
+
+        debug!("Calculating purls");
+
+        let ranged_purls =
+            pom::parser::calculate_dependencies_with_range(&params.text_document.text);
+
+        debug!("Purls: {:?}", ranged_purls);
+
+        let purls: Vec<Purl> = ranged_purls
+            .iter()
+            .map(|ranged| ranged.purl.clone())
+            .collect();
+
+        let vulnerabilities = server::get_vulnerability_information_for_purls(purls).await;
+
+        debug!("Vulnerabilities: {:?}", vulnerabilities);
+
+        let disgnostics: Vec<Diagnostic> =
+            diagnostics::calculate_diagnostics_for_vulnerabilities(ranged_purls, vulnerabilities);
+
+        self.client
+            .publish_diagnostics(params.text_document.uri, disgnostics, None)
+            .await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         info!("doc changed {}", params.text_document.uri);
 
-        // Parse the pom file
-        // Deermine the line the change occured on
-        // Is it on the versoin line?
-        // Offer a list of suggestoins
+        self.document_store.lock().unwrap().insert(
+            &params.text_document.uri,
+            params.content_changes[0].text.clone(),
+        );
+
+        match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
+            Ok(dependencies) => {
+                server::get_vulnerability_information_for_purls(
+                    dependencies
+                        .into_iter()
+                        .map(|dep| dep.into())
+                        .collect::<Vec<_>>(),
+                )
+                .await;
+            }
+            Err(err) => debug!("Failed to parse dependencies: {}", err),
+        };
     }
 
     async fn completion(
         &self,
         params: lsp_types::CompletionParams,
     ) -> Result<Option<lsp_types::CompletionResponse>> {
-        match params.context {
-            Some(CompletionContext {
-                trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
-                ..
-            })
-            | Some(CompletionContext {
-                trigger_kind: CompletionTriggerKind::INVOKED,
-                ..
-            }) => Ok(Some(CompletionResponse::Array(self.get_completion_items()))),
-            _ => Ok(None),
+        let url = params.text_document_position.text_document.uri;
+
+        let content = self.document_store.lock().unwrap().get(&url);
+
+        match content {
+            Some(document) => match params.context {
+                Some(CompletionContext {
+                    trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
+                    ..
+                })
+                | Some(CompletionContext {
+                    trigger_kind: CompletionTriggerKind::INVOKED,
+                    ..
+                }) => {
+                    let line_position = params.text_document_position.position.line;
+
+                    if pom::parser::is_editing_version(&document, line_position as usize) {
+                        debug!("Fetching purl");
+                        match pom::parser::get_purl(&document, line_position as usize) {
+                            Some(purl) => {
+                                info!("PURL: {:?}", purl);
+                                let versions_available =
+                                    server::get_version_information_for_purl(&purl).await;
+                                Ok(Some(lsp::completion::build_response(versions_available)))
+                            }
+                            None => todo!(),
+                        }
+                    } else {
+                        Ok(None)
+                    }
+                }
+                _ => Ok(None),
+            },
+            None => {
+                warn!("Document not found");
+                // TODO Should probably send back an error as the document should always be known
+                Ok(None)
+            }
         }
     }
 }
 
+// TODO Add arguments so that tracing can be configured and also to pass `stdio`
 #[tokio::main]
 async fn main() {
     let log_file = File::create("/tmp/trace.log").expect("should create trace file");

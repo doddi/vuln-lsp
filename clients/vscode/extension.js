@@ -8,10 +8,10 @@ module.exports = {
     /** @type {import("vscode-languageclient/node").ServerOptions} */
     const serverOptions = {
       run: {
-        command: "iq-lsp",
+        command: "vuln-lsp",
       },
       debug: {
-        command: "iq-lsp",
+        command: "vuln-lsp",
         // args: ["--file", `${tmpdir}/lsp.log`, "--level", "TRACE"],
       },
     };
@@ -22,8 +22,8 @@ module.exports = {
     };
 
     const client = new LanguageClient(
-      "iq-lsp",
-      "IQ Language Server",
+      "vuln-lsp",
+      "Vulnerability Language Server",
       serverOptions,
       clientOptions
     );
