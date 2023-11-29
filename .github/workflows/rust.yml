@@ -39,6 +39,6 @@ jobs:
           targets: "${{ matrix.target }}"
 
       - name: Build
-        run: cargo build --verbose --locked --release --target ${{ matrix.target }}
+        run: cargo build --verbose --release --target ${{ matrix.target }}
       - name: Run tests
         run: cargo test --verbose
