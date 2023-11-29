@@ -7,8 +7,7 @@ use super::{
 
 pub struct Dummy;
 
-#[async_trait]
-impl VulnerabilityServer for Dummy {
+impl Dummy {
     async fn get_version_information_for_purl(
         &self,
         purl: &Purl,
@@ -35,7 +34,10 @@ impl VulnerabilityServer for Dummy {
             }
         ]}
     }
+}
 
+#[async_trait]
+impl VulnerabilityServer for Dummy {
     async fn get_version_information_for_purls(
         &self,
         purls: Vec<Purl>,
@@ -43,7 +45,7 @@ impl VulnerabilityServer for Dummy {
         futures::future::join_all(
             purls
                 .iter()
-                .map(|purl| self.get_version_information_for_purl(&purl)),
+                .map(|purl| self.get_version_information_for_purl(purl)),
         )
         .await
     }

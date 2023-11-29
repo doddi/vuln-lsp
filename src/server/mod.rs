@@ -35,11 +35,6 @@ pub struct Information {
 
 #[async_trait]
 pub trait VulnerabilityServer: Send + Sync {
-    async fn get_version_information_for_purl(
-        &self,
-        purl: &Purl,
-    ) -> VulnerabilityInformationResponse;
-
     async fn get_version_information_for_purls(
         &self,
         purls: Vec<Purl>,
