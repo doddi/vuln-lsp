@@ -11,7 +11,6 @@ use tower_lsp::{
     Client, LanguageServer, LspService, Server,
 };
 use tracing::warn;
-use tracing_subscriber::EnvFilter;
 use vuln_lsp::lsp::diagnostics;
 use vuln_lsp::lsp::document_store::{self};
 use vuln_lsp::server::purl::Purl;
@@ -169,14 +168,24 @@ impl LanguageServer for Backend {
     }
 }
 
-// TODO Add arguments so that tracing can be configured and also to pass `stdio`
 #[tokio::main]
 async fn main() {
-    let log_file = File::create("/tmp/trace.log").expect("should create trace file");
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_writer(Mutex::new(log_file))
-        .init();
+    let mut args = std::env::args();
+    let program = args.next().unwrap();
+
+    if let Some(arg) = args.next() {
+        // TODO: Use clap for this
+        if arg.starts_with("--log=") {
+            let split: Vec<_> = arg.split('=').collect();
+            let level = split[1];
+            let log_file = File::create("/tmp/trace.log").expect("should create trace file");
+            tracing_subscriber::fmt()
+                .with_env_filter(format!("vuln_lsp={level}"))
+                .with_writer(Mutex::new(log_file))
+                .init();
+            info!("{program} running in debug mode");
+        }
+    }
 
     let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
 
