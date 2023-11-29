@@ -51,4 +51,4 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
          name: ${{ matrix.name }}
-         path: target/${{ matrix.target }}/release/{{ matrix.build }}
+         path: target/${{ matrix.target }}/release/${{ matrix.build }}
