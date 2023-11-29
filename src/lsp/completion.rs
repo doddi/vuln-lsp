@@ -1,14 +1,18 @@
-use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, CompletionResponse, Documentation};
+use tower_lsp::lsp_types::{
+    CompletionItem, CompletionItemKind, CompletionResponse, Documentation, MarkupContent,
+    MarkupKind,
+};
 
 use crate::server::{VulnerabilityInformationResponse, VulnerabilityVersionInfo};
 
 impl From<VulnerabilityVersionInfo> for CompletionItem {
     fn from(value: VulnerabilityVersionInfo) -> Self {
+        let markdown = build_markdown(&value);
         CompletionItem {
             label: value.version,
             kind: Some(CompletionItemKind::TEXT),
             detail: Some(value.information.summary),
-            documentation: Some(Documentation::String(value.information.detail)),
+            documentation: Some(markdown),
             deprecated: None,
             preselect: None,
             sort_text: None,
@@ -25,6 +29,31 @@ impl From<VulnerabilityVersionInfo> for CompletionItem {
             insert_text_mode: None,
         }
     }
+}
+fn build_markdown(value: &VulnerabilityVersionInfo) -> Documentation {
+    Documentation::MarkupContent(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: format_value(value),
+    })
+}
+
+fn format_value(value: &VulnerabilityVersionInfo) -> String {
+    [
+        format!("# {}: {:?}\n\n", value.version, value.severity),
+        "****".to_string(),
+        format_summary(value),
+        "****".to_string(),
+        format_detail(value),
+    ]
+    .join("\n")
+}
+
+fn format_summary(value: &VulnerabilityVersionInfo) -> String {
+    format!("## Summary\n\n{}\n\n", value.information.summary)
+}
+
+fn format_detail(value: &VulnerabilityVersionInfo) -> String {
+    format!("## Detail\n\n{}\n\n", value.information.detail)
 }
 
 pub fn build_response(server_information: VulnerabilityInformationResponse) -> CompletionResponse {
