@@ -18,13 +18,13 @@ jobs:
         include:
           - name: linux-amd64
             runner: ubuntu-latest
-            target: x84_64-unknown-linux-gnu
+            target: x86_64-unknown-linux-gnu
           - name: win-amd64
-            runner: windiws-latest
-            target: x84_64-pc-windows-msvc
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
           - name: macos-amd64
             runner: macos-latest
-            target: x84_64-apple-darwin
+            target: x86_64-apple-darwin
           - name: macos-arm64
             runner: macos-latest
             target: arch64-apple-darwin
