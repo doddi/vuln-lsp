@@ -19,15 +19,19 @@ jobs:
           - name: linux-amd64
             runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            build: vul-lsp
           - name: win-amd64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
+            build: vul-lsp.exe
           - name: macos-amd64
             runner: macos-latest
             target: x86_64-apple-darwin
+            build: vul-lsp
           - name: macos-arm64
             runner: macos-latest
             target: aarch64-apple-darwin
+            build: vul-lsp
 
     steps:
       - name: checkout
@@ -40,5 +44,11 @@ jobs:
 
       - name: Build
         run: cargo build --verbose --release --target ${{ matrix.target }}
+        
       - name: Run tests
         run: cargo test --verbose
+        
+      - uses: actions/upload-artifact@v3
+        with:
+         name: ${{ matrix.name }}
+         path: target/${{ matrix.target }}/release/{{ matrix.build }}
