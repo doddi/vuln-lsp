@@ -14,25 +14,26 @@ impl Dummy {
     ) -> VulnerabilityInformationResponse {
         // TODO Fetch from the real endpoint
         VulnerabilityInformationResponse {
-        purl: purl.clone(),
-        versions: vec![
-            VulnerabilityVersionInfo {
-                version: "1.0.0".to_string(),
-                severity: Severity::High,
-                information: Information {
-                    summary:    "This is a vulnerability header or short description".to_string(),
-                    detail:     "This is a much more details description of the vulnerability which may include things such as links".to_string(),
+            purl: purl.clone(),
+            versions: vec![
+                VulnerabilityVersionInfo {
+                    version: "1.0.0".to_string(),
+                    severity: Severity::High,
+                    information: Information {
+                        summary: "Summary 1".to_string(),
+                        detail: "Detail 1".to_string(),
+                    },
                 },
-            },
-            VulnerabilityVersionInfo {
-                version: "2.0.0".to_string(),
-                severity: Severity::None,
-                information: Information {
-                    summary:    "short description".to_string(),
-                    detail:     "This is a much more details description of the vulnerability which may include things such as links".to_string(),
+                VulnerabilityVersionInfo {
+                    version: "2.0.0".to_string(),
+                    severity: Severity::None,
+                    information: Information {
+                        summary: "Summary 2".to_string(),
+                        detail: "Detail 2".to_string(),
+                    },
                 },
-            }
-        ]}
+            ],
+        }
     }
 }
 

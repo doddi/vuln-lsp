@@ -95,7 +95,7 @@ impl LanguageServer for Backend {
             diagnostics::calculate_diagnostics_for_vulnerabilities(ranged_purls, vulnerabilities);
 
         self.client
-            .publish_diagnostics(&params.text_document.uri, disgnostics, None)
+            .publish_diagnostics(params.text_document.uri, disgnostics, None)
             .await;
     }
 
