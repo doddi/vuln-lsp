@@ -39,15 +39,16 @@ impl Dummy {
 
 #[async_trait]
 impl VulnerabilityServer for Dummy {
-    async fn get_version_information_for_purls(
+    async fn get_component_information(
         &self,
         purls: Vec<Purl>,
-    ) -> Vec<VulnerabilityInformationResponse> {
-        futures::future::join_all(
+    ) -> anyhow::Result<Vec<VulnerabilityInformationResponse>> {
+        let purls = futures::future::join_all(
             purls
                 .iter()
                 .map(|purl| self.get_version_information_for_purl(purl)),
         )
-        .await
+        .await;
+        anyhow::Ok(purls)
     }
 }
