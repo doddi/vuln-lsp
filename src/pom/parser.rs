@@ -33,6 +33,7 @@ pub struct Dependency {
 impl From<Dependency> for Purl {
     fn from(value: Dependency) -> Self {
         Purl {
+            package: "maven".to_string(),
             group_id: value.group_id,
             artifact_id: value.artifact_id,
             version: value.version.unwrap(),
@@ -122,7 +123,7 @@ pub fn calculate_dependencies_with_range(document: &str) -> Vec<RangedPurl> {
             match serde_xml_rs::from_str::<Dependency>(dependency_scope.as_str()) {
                 Ok(dep) => {
                     trace!("Found dependency: {:?}", dep);
-                    dependencies.push(RangedPurl::new(dep.into(), dep_start + 1, dep_end))
+                    dependencies.push(RangedPurl::new(dep.into(), dep_start + 1, dep_end + 1))
                 }
                 Err(err) => {
                     warn!("Failed to parse dependency: {}", err);

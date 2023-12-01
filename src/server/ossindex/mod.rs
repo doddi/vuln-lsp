@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::Url;
 use tracing::{debug, warn};
 
-use super::{
-    purl::Purl, VulnerabilityInformationResponse, VulnerabilityServer, VulnerabilityVersionInfo,
-};
+use super::{purl::Purl, Information, VulnerabilityServer, VulnerabilityVersionInfo};
 
 pub(crate) struct OssIndex {
     pub client: reqwest::Client,
@@ -26,28 +24,40 @@ struct ComponentReport {
     pub vulnerabilities: Vec<ComponentReportVulnerability>,
 }
 
-impl From<ComponentReport> for VulnerabilityInformationResponse {
+impl From<ComponentReport> for VulnerabilityVersionInfo {
     fn from(value: ComponentReport) -> Self {
         Self {
             purl: value.coordinates,
-            versions: value
-                .vulnerabilities
-                .into_iter()
-                .map(|x| x.into())
-                .collect(),
+            information: Information {
+                severity: calculate_violation_level(&value.vulnerabilities),
+                summary: summarize_violations(&value.vulnerabilities),
+                detail: detail_violations(&value.vulnerabilities),
+            },
         }
     }
 }
 
-impl From<ComponentReportVulnerability> for VulnerabilityVersionInfo {
-    fn from(value: ComponentReportVulnerability) -> Self {
-        Self {
-            version: todo!(),
-            severity: todo!(),
-            information: todo!(),
-        }
-    }
+fn detail_violations(vulnerabilities: &[ComponentReportVulnerability]) -> String {
+    todo!()
 }
+
+fn summarize_violations(vulnerabilities: &[ComponentReportVulnerability]) -> String {
+    todo!()
+}
+
+fn calculate_violation_level(vulnerabilities: &[ComponentReportVulnerability]) -> super::Severity {
+    todo!()
+}
+
+// impl From<ComponentReportVulnerability> for VulnerabilityVersionInfo {
+//     fn from(value: ComponentReportVulnerability) -> Self {
+//         Self {
+//             version: todo!(),
+//             severity: todo!(),
+//             information: todo!(),
+//         }
+//     }
+// }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ComponentReportVulnerability {
@@ -119,7 +129,7 @@ impl VulnerabilityServer for OssIndex {
     async fn get_component_information(
         &self,
         purls: Vec<Purl>,
-    ) -> anyhow::Result<Vec<VulnerabilityInformationResponse>> {
+    ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         let request =
             OssClientRequest::ComponentReport(ComponentReportRequest { coordinates: purls });
 
@@ -144,5 +154,12 @@ impl VulnerabilityServer for OssIndex {
                 anyhow::Ok(vec![])
             }
         }
+    }
+
+    async fn get_versions_for_purl(
+        &self,
+        _purl: Purl,
+    ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
+        todo!()
     }
 }

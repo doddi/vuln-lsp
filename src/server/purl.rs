@@ -1,12 +1,34 @@
+use std::fmt::{Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::pom::parser::Dependency;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Purl {
+    pub package: String,
     pub group_id: String,
     pub artifact_id: String,
     pub version: String,
+}
+
+// impl ToString for Purl {
+//     fn to_string(&self) -> String {
+//         format!(
+//             "pkg:{}/{}/{}/@{}",
+//             self.package, self.group_id, self.artifact_id, self.version
+//         )
+//     }
+// }
+//
+impl Display for Purl {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "pkg:{}/{}/{}@{}",
+            self.package, self.group_id, self.artifact_id, self.version
+        )
+    }
 }
 
 impl From<Purl> for Dependency {

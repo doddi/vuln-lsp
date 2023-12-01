@@ -3,13 +3,13 @@ use tower_lsp::lsp_types::{
     MarkupKind,
 };
 
-use crate::server::{VulnerabilityInformationResponse, VulnerabilityVersionInfo};
+use crate::server::VulnerabilityVersionInfo;
 
 impl From<VulnerabilityVersionInfo> for CompletionItem {
     fn from(value: VulnerabilityVersionInfo) -> Self {
         let markdown = build_markdown(&value);
         CompletionItem {
-            label: value.version,
+            label: format!("{}", value.purl),
             kind: Some(CompletionItemKind::TEXT),
             detail: Some(value.information.summary),
             documentation: Some(markdown),
@@ -39,7 +39,10 @@ fn build_markdown(value: &VulnerabilityVersionInfo) -> Documentation {
 
 fn format_value(value: &VulnerabilityVersionInfo) -> String {
     [
-        format!("# {}: {:?}\n\n", value.version, value.severity),
+        format!(
+            "# {}: {:?}\n\n",
+            value.purl.version, value.information.severity
+        ),
         "****".to_string(),
         format_summary(value),
         "****".to_string(),
@@ -56,9 +59,8 @@ fn format_detail(value: &VulnerabilityVersionInfo) -> String {
     format!("## Detail\n\n{}\n\n", value.information.detail)
 }
 
-pub fn build_response(server_information: VulnerabilityInformationResponse) -> CompletionResponse {
+pub fn build_response(server_information: Vec<VulnerabilityVersionInfo>) -> CompletionResponse {
     let versions = server_information
-        .versions
         .into_iter()
         .map(|version| version.into())
         .collect();

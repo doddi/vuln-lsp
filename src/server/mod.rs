@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use self::{dummy::Dummy, purl::Purl};
+use self::purl::Purl;
 
 pub(crate) mod dummy;
 pub(crate) mod ossindex;
@@ -12,15 +12,8 @@ pub enum VulnerableServerType {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct VulnerabilityInformationResponse {
-    pub purl: Purl,
-    pub versions: Vec<VulnerabilityVersionInfo>,
-}
-
-#[derive(Debug, Clone)]
 pub(crate) struct VulnerabilityVersionInfo {
-    pub version: String,
-    pub severity: Severity,
+    pub purl: Purl,
     pub information: Information,
 }
 
@@ -34,22 +27,28 @@ pub(crate) enum Severity {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Information {
+    pub severity: Severity,
     pub summary: String,
     pub detail: String,
 }
 
 #[async_trait]
 pub(crate) trait VulnerabilityServer: Send + Sync {
+    async fn get_versions_for_purl(
+        &self,
+        purl: Purl,
+    ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>>;
+
     async fn get_component_information(
         &self,
         purls: Vec<Purl>,
-    ) -> anyhow::Result<Vec<VulnerabilityInformationResponse>>;
+    ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>>;
 }
 
-pub(crate) async fn get_vulnerability_information_for_purls(
-    purls: Vec<Purl>,
-) -> anyhow::Result<Vec<VulnerabilityInformationResponse>> {
-    let server: Box<dyn VulnerabilityServer> = Box::new(Dummy {});
-
-    server.get_component_information(purls).await
-}
+// pub(crate) async fn get_vulnerability_information_for_purls(
+//     purls: Vec<Purl>,
+// ) -> anyhow::Result<Vec<VulnerabilityInformationResponse>> {
+//     let server: Box<dyn VulnerabilityServer> = Box::new(Dummy {});
+//
+//     server.get_component_information(purls).await
+// }

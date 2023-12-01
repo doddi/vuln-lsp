@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use log::debug;
 use lsp::document_store;
 use server::{VulnerabilityServer, VulnerableServerType};
 use tokio::io::{stdin, stdout};
@@ -11,7 +12,7 @@ use tower_lsp::{
     },
     Client, LanguageServer, LspService, Server,
 };
-use tracing::{debug, info, warn};
+use tracing::{error, info, warn};
 
 use crate::{lsp::diagnostics, server::purl::Purl};
 
@@ -74,6 +75,7 @@ impl LanguageServer for Backend {
                     all_commit_characters: None,
                     completion_item: None,
                 }),
+                hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
                 ..ServerCapabilities::default()
             },
             offset_encoding: None,
@@ -108,18 +110,21 @@ impl LanguageServer for Backend {
             .map(|ranged| ranged.purl.clone())
             .collect();
 
-        let vulnerabilities = server::get_vulnerability_information_for_purls(purls)
-            .await
-            .unwrap();
+        if let Ok(vulnerabilities) = self.server.get_component_information(purls).await {
+            debug!("Vulnerabilities: {:?}", vulnerabilities);
 
-        debug!("Vulnerabilities: {:?}", vulnerabilities);
+            let diagnostics: Vec<Diagnostic> =
+                diagnostics::calculate_diagnostics_for_vulnerabilities(
+                    ranged_purls,
+                    vulnerabilities,
+                );
 
-        let disgnostics: Vec<Diagnostic> =
-            diagnostics::calculate_diagnostics_for_vulnerabilities(ranged_purls, vulnerabilities);
-
-        self.client
-            .publish_diagnostics(params.text_document.uri, disgnostics, None)
-            .await;
+            debug!("Found {} diagnostic vulnerabilities", diagnostics.len());
+            debug!("Diagnostics: {:?}", diagnostics);
+            self.client
+                .publish_diagnostics(params.text_document.uri, diagnostics, None)
+                .await;
+        }
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -132,14 +137,13 @@ impl LanguageServer for Backend {
 
         match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
             Ok(dependencies) => {
-                server::get_vulnerability_information_for_purls(
-                    dependencies
-                        .into_iter()
-                        .map(|dep| dep.into())
-                        .collect::<Vec<_>>(),
-                )
-                .await
-                .unwrap();
+                let purls = dependencies
+                    .into_iter()
+                    .map(|dep| dep.into())
+                    .collect::<Vec<_>>();
+
+                // TODO provide feedback through disgnostics message
+                let response = self.server.get_component_information(purls).await.unwrap();
             }
             Err(err) => debug!("Failed to parse dependencies: {}", err),
         };
@@ -170,12 +174,13 @@ impl LanguageServer for Backend {
                         match pom::parser::get_purl(&document, line_position as usize) {
                             Some(purl) => {
                                 info!("PURL: {:?}", purl);
-                                let versions_available =
-                                    server::get_vulnerability_information_for_purls(vec![purl])
-                                        .await
-                                        .unwrap();
-                                let first_response = versions_available[0].clone();
-                                Ok(Some(lsp::completion::build_response(first_response)))
+                                match self.server.get_versions_for_purl(purl).await {
+                                    Ok(response) => {
+                                        Ok(Some(lsp::completion::build_response(response)))
+                                    }
+                                    // TODO Add better error handling
+                                    Err(_) => Ok(None),
+                                }
                             }
                             None => todo!(),
                         }
@@ -191,5 +196,14 @@ impl LanguageServer for Backend {
                 Ok(None)
             }
         }
+    }
+
+    async fn hover(
+        &self,
+        params: lsp_types::HoverParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::Hover>> {
+        let _ = params;
+        error!("Got a textDocument/hover request, but it is not implemented");
+        tower_lsp::jsonrpc::Result::Err(tower_lsp::jsonrpc::Error::method_not_found())
     }
 }
