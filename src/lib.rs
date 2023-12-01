@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use log::debug;
-use lsp::document_store;
+use lsp::document_store::{self, DocumentStore};
 use server::{VulnerabilityServer, VulnerableServerType};
 use tokio::io::{stdin, stdout};
 use tower_lsp::{
@@ -21,8 +21,11 @@ mod pom;
 pub mod server;
 
 pub async fn start(server_type: VulnerableServerType) {
+    let server = create_server(server_type);
+    let document_store = document_store::DocumentStore::new();
+
     let (service, socket) =
-        LspService::build(|client| Backend::new(client, create_server(server_type))).finish();
+        LspService::build(|client| Backend::new(client, server, document_store)).finish();
     Server::new(stdin(), stdout(), socket).serve(service).await;
 }
 
@@ -37,17 +40,47 @@ fn create_server(server_type: VulnerableServerType) -> Box<dyn VulnerabilityServ
 
 struct Backend {
     client: Client,
-    document_store: Arc<Mutex<document_store::DocumentStore>>,
+    document_store: DocumentStore,
     server: Box<dyn VulnerabilityServer>,
 }
 
 impl Backend {
-    pub fn new(client: Client, server: Box<dyn VulnerabilityServer>) -> Self {
+    pub fn new(
+        client: Client,
+        server: Box<dyn VulnerabilityServer>,
+        document_store: DocumentStore,
+    ) -> Self {
         Backend {
             client,
-            document_store: Arc::new(Mutex::new(document_store::DocumentStore::default())),
+            document_store,
             server,
         }
+    }
+
+    async fn generate_hover_content(&self, purl: Purl) -> lsp_types::HoverContents {
+        let component_info = self
+            .server
+            .get_component_information(vec![purl.clone()])
+            .await
+            .unwrap();
+
+        lsp_types::HoverContents::Markup(lsp_types::MarkupContent {
+            kind: lsp_types::MarkupKind::Markdown,
+            value: format!(
+                r#"pkg:{}/{}/{}@{}
+                Severity: {:?}
+                {}
+                {}
+                "#,
+                component_info[0].purl.package,
+                component_info[0].purl.group_id,
+                component_info[0].purl.artifact_id,
+                component_info[0].purl.version,
+                component_info[0].information.severity,
+                component_info[0].information.summary,
+                component_info[0].information.detail,
+            ),
+        })
     }
 }
 
@@ -93,19 +126,22 @@ impl LanguageServer for Backend {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         debug!("doc opened {}", params.text_document.uri);
 
-        self.document_store
-            .lock()
-            .unwrap()
-            .insert(&params.text_document.uri, params.text_document.text.clone());
-
         debug!("Calculating purls");
 
         let ranged_purls =
             pom::parser::calculate_dependencies_with_range(&params.text_document.text);
-
         debug!("Purls: {:?}", ranged_purls);
 
+        self.document_store.insert(
+            &params.text_document.uri,
+            params.text_document.text,
+            ranged_purls,
+        );
+
+        let ranged_purls = self.document_store.get(&params.text_document.uri).unwrap();
+
         let purls: Vec<Purl> = ranged_purls
+            .purls
             .iter()
             .map(|ranged| ranged.purl.clone())
             .collect();
@@ -115,7 +151,7 @@ impl LanguageServer for Backend {
 
             let diagnostics: Vec<Diagnostic> =
                 diagnostics::calculate_diagnostics_for_vulnerabilities(
-                    ranged_purls,
+                    ranged_purls.purls,
                     vulnerabilities,
                 );
 
@@ -130,9 +166,14 @@ impl LanguageServer for Backend {
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         info!("doc changed {}", params.text_document.uri);
 
-        self.document_store.lock().unwrap().insert(
+        let ranged_purls =
+            pom::parser::calculate_dependencies_with_range(&params.content_changes[0].text);
+        debug!("Purls: {:?}", ranged_purls);
+
+        self.document_store.insert(
             &params.text_document.uri,
             params.content_changes[0].text.clone(),
+            ranged_purls,
         );
 
         match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
@@ -155,10 +196,10 @@ impl LanguageServer for Backend {
     ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::CompletionResponse>> {
         let url = params.text_document_position.text_document.uri;
 
-        let content = self.document_store.lock().unwrap().get(&url);
+        let content = self.document_store.get(&url);
 
         match content {
-            Some(document) => match params.context {
+            Some(items) => match params.context {
                 Some(CompletionContext {
                     trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
                     ..
@@ -169,9 +210,9 @@ impl LanguageServer for Backend {
                 }) => {
                     let line_position = params.text_document_position.position.line;
 
-                    if pom::parser::is_editing_version(&document, line_position as usize) {
+                    if pom::parser::is_editing_version(&items.document, line_position as usize) {
                         debug!("Fetching purl");
-                        match pom::parser::get_purl(&document, line_position as usize) {
+                        match pom::parser::get_purl(&items.document, line_position as usize) {
                             Some(purl) => {
                                 info!("PURL: {:?}", purl);
                                 match self.server.get_versions_for_purl(purl).await {
@@ -202,8 +243,21 @@ impl LanguageServer for Backend {
         &self,
         params: lsp_types::HoverParams,
     ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::Hover>> {
-        let _ = params;
-        error!("Got a textDocument/hover request, but it is not implemented");
-        tower_lsp::jsonrpc::Result::Err(tower_lsp::jsonrpc::Error::method_not_found())
+        let line_number = params.text_document_position_params.position.line;
+        let uri = params.text_document_position_params.text_document.uri;
+
+        match self
+            .document_store
+            .get_purl_for_position(&uri, line_number as usize)
+        {
+            Some(purl) => tower_lsp::jsonrpc::Result::Ok(Some(lsp_types::Hover {
+                contents: self.generate_hover_content(purl).await,
+                range: None,
+            })),
+            None => {
+                warn!("No purl found for position");
+                tower_lsp::jsonrpc::Result::Err(tower_lsp::jsonrpc::Error::method_not_found())
+            }
+        }
     }
 }

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
-use crate::server::purl::{Purl, RangedPurl};
+use crate::server::purl::{self, Position, Purl, PurlRange, Range};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 struct Project {
@@ -93,44 +93,56 @@ pub fn get_purl(document: &str, line_position: usize) -> Option<Purl> {
     }
 }
 
-pub fn calculate_dependencies_with_range(document: &str) -> Vec<RangedPurl> {
+pub fn calculate_dependencies_with_range(document: &str) -> Vec<PurlRange> {
     let lines = document.lines().collect::<Vec<&str>>();
 
-    let mut dep_start = 0;
-    let mut dep_end = 0;
+    let mut dep_start = None;
+    let mut dep_end = None;
     let mut dependencies = Vec::new();
     for (index, line) in lines.iter().enumerate() {
-        if line.contains("<dependency>") {
+        if let Some(col) = line.find("<dependency>") {
             trace!("Found dependency start at {}", index);
-            dep_start = index;
-        }
-        if line.contains("</dependency>") {
+            dep_start = Some(purl::Position { row: index, col });
+        } else if let Some(col) = line.find("</dependency>") {
             trace!("Found dependency end at {}", index);
-            dep_end = index;
+            dep_end = Some(purl::Position {
+                row: index,
+                col: col + "</dependency>".to_string().len(),
+            });
         }
 
-        if dep_start > 0 && dep_end > 0 {
+        if let (Some(start), Some(end)) = (&dep_start, &dep_end) {
             trace!("Extracting dependency information");
             // TODO Bad Bad Bad, need to iterate over a single time
             let lines_for_extraction = document.lines().collect::<Vec<&str>>();
             let dependency_scope = lines_for_extraction
                 .into_iter()
-                .skip(dep_start)
-                .take(dep_end - dep_start + 1)
+                .skip(start.row)
+                .take(end.row - start.row + 1)
                 .collect::<Vec<&str>>()
                 .join("\n");
-
             match serde_xml_rs::from_str::<Dependency>(dependency_scope.as_str()) {
                 Ok(dep) => {
                     trace!("Found dependency: {:?}", dep);
-                    dependencies.push(RangedPurl::new(dep.into(), dep_start + 1, dep_end + 1))
+                    let range = purl::Range::new(
+                        purl::Position {
+                            row: start.row,
+                            col: start.col,
+                        },
+                        purl::Position {
+                            row: end.row,
+                            col: end.col,
+                        },
+                    );
+                    let purl_range = PurlRange::new(dep.into(), range);
+                    dependencies.push(purl_range);
                 }
                 Err(err) => {
                     warn!("Failed to parse dependency: {}", err);
                 }
             }
-            dep_start = 0;
-            dep_end = 0;
+            dep_start = None;
+            dep_end = None;
         }
     }
     dependencies

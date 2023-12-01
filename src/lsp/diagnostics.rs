@@ -1,6 +1,6 @@
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
-use crate::server::{self, purl::RangedPurl, VulnerabilityVersionInfo};
+use crate::server::{self, purl::PurlRange, VulnerabilityVersionInfo};
 
 impl From<server::Severity> for Option<DiagnosticSeverity> {
     fn from(value: server::Severity) -> Self {
@@ -14,7 +14,7 @@ impl From<server::Severity> for Option<DiagnosticSeverity> {
 }
 
 pub fn calculate_diagnostics_for_vulnerabilities(
-    ranged_purls: Vec<RangedPurl>,
+    ranged_purls: Vec<PurlRange>,
     vulnerabilities: Vec<VulnerabilityVersionInfo>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -28,12 +28,12 @@ pub fn calculate_diagnostics_for_vulnerabilities(
                 let diagnostic = Diagnostic {
                     range: tower_lsp::lsp_types::Range {
                         start: tower_lsp::lsp_types::Position {
-                            line: ranged_purl.range.start as u32,
-                            character: 0,
+                            line: ranged_purl.range.start.row as u32,
+                            character: ranged_purl.range.start.col as u32,
                         },
                         end: tower_lsp::lsp_types::Position {
-                            line: ranged_purl.range.end as u32,
-                            character: 0,
+                            line: ranged_purl.range.end.row as u32,
+                            character: ranged_purl.range.end.col as u32,
                         },
                     },
                     severity: version_info.severity.into(),

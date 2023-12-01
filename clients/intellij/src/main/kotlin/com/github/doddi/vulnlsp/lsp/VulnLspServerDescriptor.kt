@@ -5,6 +5,7 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
+import com.intellij.platform.lsp.api.customization.LspCompletionSupport
 import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
 import org.eclipse.lsp4j.Diagnostic
 
@@ -14,6 +15,7 @@ class VulnLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor
             withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
             withCharset(Charsets.UTF_8)
             withExePath("vuln-lsp")
+            withParameters("--log-level-trace")
         }
     }
 
@@ -21,20 +23,4 @@ class VulnLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor
 
     override val lspGoToDefinitionSupport = false
 
-    override val lspCompletionSupport = null
-
-//
-//    override val lspDiagnosticsSupport: LspDiagnosticsSupport?
-//        get() = MyLspDiagnosticsSupport()
-
-}
-
-class MyLspDiagnosticsSupport : LspDiagnosticsSupport() {
-    override fun getHighlightSeverity(diagnostic: Diagnostic): HighlightSeverity? {
-        return HighlightSeverity.ERROR
-    }
-
-    override fun getMessage(diagnostic: Diagnostic): String {
-        return super.getMessage(diagnostic)
-    }
 }
