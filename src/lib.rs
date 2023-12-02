@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use log::debug;
 use lsp::document_store::{self, DocumentStore};
 use server::{VulnerabilityServer, VulnerableServerType};
@@ -12,7 +10,7 @@ use tower_lsp::{
     },
     Client, LanguageServer, LspService, Server,
 };
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 use crate::{lsp::diagnostics, server::purl::Purl};
 
@@ -184,7 +182,7 @@ impl LanguageServer for Backend {
                     .collect::<Vec<_>>();
 
                 // TODO provide feedback through disgnostics message
-                let response = self.server.get_component_information(purls).await.unwrap();
+                let _response = self.server.get_component_information(purls).await.unwrap();
             }
             Err(err) => debug!("Failed to parse dependencies: {}", err),
         };

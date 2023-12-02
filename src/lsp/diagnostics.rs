@@ -5,6 +5,7 @@ use crate::server::{self, purl::PurlRange, VulnerabilityVersionInfo};
 impl From<server::Severity> for Option<DiagnosticSeverity> {
     fn from(value: server::Severity) -> Self {
         match value {
+            server::Severity::Critical => Some(DiagnosticSeverity::ERROR),
             server::Severity::High => Some(DiagnosticSeverity::ERROR),
             server::Severity::Medium => Some(DiagnosticSeverity::WARNING),
             server::Severity::Low => Some(DiagnosticSeverity::INFORMATION),
@@ -36,7 +37,7 @@ pub fn calculate_diagnostics_for_vulnerabilities(
                             character: ranged_purl.range.end.col as u32,
                         },
                     },
-                    severity: version_info.severity.into(),
+                    severity: version_info.severity.clone().into(),
                     code: None,
                     code_description: None,
                     source: Some("vulnerability".to_string()),

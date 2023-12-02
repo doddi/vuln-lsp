@@ -17,8 +17,9 @@ pub(crate) struct VulnerabilityVersionInfo {
     pub information: Information,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
 pub(crate) enum Severity {
+    Critical,
     High,
     Medium,
     Low,
@@ -44,11 +45,3 @@ pub(crate) trait VulnerabilityServer: Send + Sync {
         purls: Vec<Purl>,
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>>;
 }
-
-// pub(crate) async fn get_vulnerability_information_for_purls(
-//     purls: Vec<Purl>,
-// ) -> anyhow::Result<Vec<VulnerabilityInformationResponse>> {
-//     let server: Box<dyn VulnerabilityServer> = Box::new(Dummy {});
-//
-//     server.get_component_information(purls).await
-// }

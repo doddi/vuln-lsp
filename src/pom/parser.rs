@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
-use crate::server::purl::{self, Position, Purl, PurlRange, Range};
+use crate::server::purl::{self, Purl, PurlRange};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 struct Project {
