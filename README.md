@@ -4,6 +4,26 @@ This is a simple language server for Sonatype vuln products.
 
 Once built, ensure that the `vuln-lsp` binary is in your `$PATH`.
 
+## Parameters
+
+### Backend Service
+
+The LSP can fetch data from either a `dummy` backend or from [OssIndex(https://ossindex.sonatype.org/)].
+`dummy` is the default setting.
+To enable OssIndex simply add the `oss-index` command line argument.
+
+### Logging
+
+To enable logging add the parameter `--log-level=<Leve>` to the command line
+arguments where `<level>` is any of hte following:
+
+- `error`
+- `warn`
+- `info`
+- `debug`
+- `trace`
+
+
 ## Editors
 
 ### Neovim
@@ -38,6 +58,7 @@ To debug the lsp in vscode, first create a `launch.json` file in `.vscode/`
 with the following contents:
 
 ```json
+{
     "version": "0.2.0",
     "configurations": [
         {
@@ -58,9 +79,9 @@ with the following contents:
 }
 
 ```
+
 Run the debugger and open the provided `test.anat` file to test the lsp.
 
 ### Intellij
 
 ## Features
-
