@@ -185,7 +185,7 @@ mod test {
     #[test]
     fn can_deserialize_struts() {
         let purl: Purl =
-            serde_json::from_str("pkg:maven/org.apache.struts/struts-core@1.3.10").unwrap();
+            serde_json::from_str("\"pkg:maven/org.apache.struts/struts-core@1.3.10\"").unwrap();
 
         assert_eq!(purl.package, "maven");
         assert_eq!(purl.group_id, "org.apache.struts");
