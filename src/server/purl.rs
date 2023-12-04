@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 
-use serde::de::{Error, Visitor};
+use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
 
 use crate::pom::parser::Dependency;
