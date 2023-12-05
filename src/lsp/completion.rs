@@ -1,9 +1,11 @@
+use serde_json::Value;
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionResponse, Documentation, MarkupContent,
     MarkupKind,
 };
+use tracing::debug;
 
-use crate::server::{Severity, VulnerabilityVersionInfo};
+use crate::server::{purl::Purl, Severity, VulnerabilityVersionInfo};
 
 impl From<VulnerabilityVersionInfo> for CompletionItem {
     fn from(value: VulnerabilityVersionInfo) -> Self {
@@ -39,11 +41,6 @@ fn build_summary(value: &VulnerabilityVersionInfo) -> String {
         .fold("".to_string(), |acc, vulnerability| {
             format!("{acc}\n\n{}", vulnerability.summary)
         })
-    // value
-    //     .vulnerabilities
-    //     .iter()
-    //     .map(|vulnerability| format!("{}\n\n", vulnerability.summary))
-    //     .collect()
 }
 
 fn build_documentation(value: &VulnerabilityVersionInfo) -> Documentation {
@@ -93,10 +90,42 @@ fn format_detail(value: &VulnerabilityVersionInfo) -> String {
         })
 }
 
-pub fn build_response(server_information: Vec<VulnerabilityVersionInfo>) -> CompletionResponse {
-    let versions = server_information
+impl From<Purl> for CompletionItem {
+    fn from(value: Purl) -> Self {
+        let purl = format!("{}", value);
+        CompletionItem {
+            label: value.version,
+            kind: Some(CompletionItemKind::TEXT),
+            detail: None,
+            documentation: None,
+            deprecated: None,
+            preselect: None,
+            sort_text: None,
+            filter_text: None,
+            insert_text: None,
+            insert_text_format: None,
+            text_edit: None,
+            additional_text_edits: None,
+            commit_characters: None,
+            command: None,
+            data: Some(Value::String(purl)),
+            tags: None,
+            label_details: None,
+            insert_text_mode: None,
+        }
+    }
+}
+
+pub fn build_initial_response(purls: Vec<Purl>) -> CompletionResponse {
+    let completion_response = purls
         .into_iter()
-        .map(|vulnerability| vulnerability.into())
-        .collect();
-    CompletionResponse::Array(versions)
+        .map(|purl| purl.into())
+        .collect::<Vec<CompletionItem>>();
+    debug!("initial completion response: {:?}", completion_response);
+    CompletionResponse::Array(completion_response)
+}
+
+pub fn build_response(server_information: &VulnerabilityVersionInfo) -> CompletionItem {
+    debug!("completion response: {:?}", server_information);
+    (*server_information).clone().into()
 }

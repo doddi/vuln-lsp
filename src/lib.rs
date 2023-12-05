@@ -1,4 +1,3 @@
-use log::debug;
 use lsp::document_store::{self, DocumentStore};
 use server::{VulnerabilityServer, VulnerableServerType};
 use tokio::io::{stdin, stdout};
@@ -10,7 +9,7 @@ use tower_lsp::{
     },
     Client, LanguageServer, LspService, Server,
 };
-use tracing::{info, warn};
+use tracing::{debug, info, trace, warn};
 
 use crate::{lsp::diagnostics, server::purl::Purl};
 
@@ -31,6 +30,10 @@ fn create_server(server_type: VulnerableServerType) -> Box<dyn VulnerabilityServ
     match server_type {
         VulnerableServerType::Dummy => Box::new(server::dummy::Dummy {}),
         VulnerableServerType::OssIndex => Box::new(server::ossindex::OssIndex {
+            client: reqwest::Client::new(),
+        }),
+        VulnerableServerType::Sonatype(base_url) => Box::new(server::sonatype::Sonatype {
+            base_url,
             client: reqwest::Client::new(),
         }),
     }
@@ -116,13 +119,13 @@ impl LanguageServer for Backend {
                     TextDocumentSyncKind::FULL,
                 )),
                 completion_provider: Some(lsp_types::CompletionOptions {
-                    resolve_provider: Some(false),
+                    resolve_provider: Some(true),
                     trigger_characters: Some(vec![">".to_string()]),
                     work_done_progress_options: Default::default(),
                     all_commit_characters: None,
                     completion_item: None,
                 }),
-                hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
+                // hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
                 ..ServerCapabilities::default()
             },
             offset_encoding: None,
@@ -144,7 +147,6 @@ impl LanguageServer for Backend {
 
         let ranged_purls =
             pom::parser::calculate_dependencies_with_range(&params.text_document.text);
-        debug!("Purls: {:?}", ranged_purls);
 
         self.document_store.insert(
             &params.text_document.uri,
@@ -161,7 +163,7 @@ impl LanguageServer for Backend {
             .collect();
 
         if let Ok(vulnerabilities) = self.server.get_component_information(purls).await {
-            debug!("Vulnerabilities: {:?}", vulnerabilities);
+            trace!("Vulnerabilities: {:?}", vulnerabilities);
 
             let diagnostics: Vec<Diagnostic> =
                 diagnostics::calculate_diagnostics_for_vulnerabilities(
@@ -169,7 +171,7 @@ impl LanguageServer for Backend {
                     vulnerabilities,
                 );
 
-            debug!("Diagnostics: {:?}", diagnostics);
+            trace!("Diagnostics: {:?}", diagnostics);
             self.client
                 .publish_diagnostics(params.text_document.uri, diagnostics, None)
                 .await;
@@ -226,13 +228,12 @@ impl LanguageServer for Backend {
                     let line_position = params.text_document_position.position.line;
 
                     if pom::parser::is_editing_version(&items.document, line_position as usize) {
-                        debug!("Fetching purl");
                         match pom::parser::get_purl(&items.document, line_position as usize) {
                             Some(purl) => {
-                                info!("PURL: {:?}", purl);
+                                debug!("PURL: {:?}", purl);
                                 match self.server.get_versions_for_purl(purl).await {
                                     Ok(response) => {
-                                        Ok(Some(lsp::completion::build_response(response)))
+                                        Ok(Some(lsp::completion::build_initial_response(response)))
                                     }
                                     // TODO Add better error handling
                                     Err(_) => Ok(None),
@@ -250,6 +251,24 @@ impl LanguageServer for Backend {
                 warn!("Document not found");
                 // TODO Should probably send back an error as the document should always be known
                 Ok(None)
+            }
+        }
+    }
+
+    async fn completion_resolve(
+        &self,
+        params: lsp_types::CompletionItem,
+    ) -> tower_lsp::jsonrpc::Result<lsp_types::CompletionItem> {
+        debug!("completion_resolve: {:?}", params);
+        let data = params.data.unwrap();
+        let purl = serde_json::from_value(data).unwrap();
+
+        debug!("about to lookup completion for {}", purl);
+        match self.server.get_component_information(vec![purl]).await {
+            Ok(vulnerabilities) => Ok(lsp::completion::build_response(&vulnerabilities[0])),
+            Err(_) => {
+                debug!("Failed to get component information");
+                Err(tower_lsp::jsonrpc::Error::internal_error())
             }
         }
     }

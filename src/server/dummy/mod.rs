@@ -9,31 +9,11 @@ impl Dummy {}
 
 #[async_trait]
 impl VulnerabilityServer for Dummy {
-    async fn get_versions_for_purl(
-        &self,
-        purl: Purl,
-    ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
+    async fn get_versions_for_purl(&self, purl: Purl) -> anyhow::Result<Vec<Purl>> {
         let mut other_purl = purl.clone();
         other_purl.version += "1";
 
-        let versions = vec![
-            VulnerabilityVersionInfo {
-                purl: purl.clone(),
-                vulnerabilities: vec![Information {
-                    summary: "Summary 1".to_string(),
-                    severity: Severity::High,
-                    detail: "Detail 1".to_string(),
-                }],
-            },
-            VulnerabilityVersionInfo {
-                purl: purl.clone(),
-                vulnerabilities: vec![Information {
-                    summary: "Summary 2".to_string(),
-                    severity: Severity::Low,
-                    detail: "Detail 2".to_string(),
-                }],
-            },
-        ];
+        let versions = vec![purl.clone(), other_purl];
         anyhow::Ok(versions)
     }
 
