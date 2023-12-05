@@ -15,7 +15,7 @@ class VulnLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor
             withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
             withCharset(Charsets.UTF_8)
             withExePath("vuln-lsp")
-            withParameters("--log-level=debug")
+            withParameters("oss-index", "--log-level=debug")
         }
     }
 

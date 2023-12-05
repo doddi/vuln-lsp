@@ -45,43 +45,37 @@ impl From<ComponentReport> for VulnerabilityVersionInfo {
     fn from(value: ComponentReport) -> Self {
         Self {
             purl: value.coordinates,
-            information: Information {
-                severity: calculate_violation_level(&value.vulnerabilities),
-                summary: summarize_violations(&value.vulnerabilities),
-                detail: detail_violations(&value.vulnerabilities),
-            },
+            vulnerabilities: value
+                .vulnerabilities
+                .into_iter()
+                .map(|x| x.into())
+                .collect(),
         }
     }
 }
 
-fn detail_violations(vulnerabilities: &[ComponentReportVulnerability]) -> String {
-    vulnerabilities
-        .iter()
-        .map(|v| v.description.clone())
-        .collect::<Vec<String>>()
-        .join("\n")
+impl From<ComponentReportVulnerability> for Information {
+    fn from(value: ComponentReportVulnerability) -> Self {
+        Self {
+            severity: calculate_violation_level(value.cvss_score),
+            summary: value.title,
+            detail: value.description,
+        }
+    }
 }
 
-fn summarize_violations(vulnerabilities: &[ComponentReportVulnerability]) -> String {
-    vulnerabilities
-        .iter()
-        .map(|v| v.title.clone())
-        .collect::<Vec<String>>()
-        .join("\n")
-}
-
-fn calculate_violation_level(vulnerabilities: &[ComponentReportVulnerability]) -> super::Severity {
-    vulnerabilities
-        .iter()
-        .map(|v| match v.cvss_score {
-            x if x >= 9.0 => super::Severity::Critical,
-            x if x >= 7.0 => super::Severity::High,
-            x if x >= 4.0 => super::Severity::Medium,
-            x if x >= 0.1 => super::Severity::Low,
-            _ => super::Severity::None,
-        })
-        .max()
-        .unwrap_or(super::Severity::None)
+fn calculate_violation_level(cvss_score: f32) -> super::Severity {
+    if cvss_score <= 3.9 {
+        super::Severity::Low
+    } else if cvss_score > 3.9 && cvss_score <= 6.9 {
+        super::Severity::Medium
+    } else if cvss_score > 6.9 && cvss_score <= 8.9 {
+        super::Severity::High
+    } else if cvss_score > 9.0 {
+        super::Severity::Critical
+    } else {
+        super::Severity::None
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

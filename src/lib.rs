@@ -62,23 +62,37 @@ impl Backend {
             .await
             .unwrap();
 
-        lsp_types::HoverContents::Markup(lsp_types::MarkupContent {
-            kind: lsp_types::MarkupKind::Markdown,
-            value: format!(
-                r#"pkg:{}/{}/{}@{}
+        if component_info.is_empty() {
+            return lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(
+                "No information found".to_string(),
+            ));
+        }
+
+        if let Some(vulnerability) = component_info[0]
+            .find_highest_severity_vulnerability(&component_info[0].vulnerabilities)
+        {
+            lsp_types::HoverContents::Markup(lsp_types::MarkupContent {
+                kind: lsp_types::MarkupKind::Markdown,
+                value: format!(
+                    r#"pkg:{}/{}/{}@{}
                 Severity: {:?}
                 {}
                 {}
                 "#,
-                component_info[0].purl.package,
-                component_info[0].purl.group_id,
-                component_info[0].purl.artifact_id,
-                component_info[0].purl.version,
-                component_info[0].information.severity,
-                component_info[0].information.summary,
-                component_info[0].information.detail,
-            ),
-        })
+                    component_info[0].purl.package,
+                    component_info[0].purl.group_id,
+                    component_info[0].purl.artifact_id,
+                    component_info[0].purl.version,
+                    vulnerability.severity,
+                    vulnerability.summary,
+                    vulnerability.detail,
+                ),
+            })
+        } else {
+            lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(
+                "No information found".to_string(),
+            ))
+        }
     }
 }
 
@@ -88,8 +102,10 @@ impl LanguageServer for Backend {
         &self,
         _params: InitializeParams,
     ) -> tower_lsp::jsonrpc::Result<InitializeResult> {
-        info!("Initializing");
+        info!("Initializing vuln-lsp");
 
+        // TODO Vulnerability servers such as OSSIndex do not support an API endpoint to fetch versions
+        // so we need to disable CompletionProvider
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
                 name: "vuln-lsp".to_string(),
@@ -153,7 +169,6 @@ impl LanguageServer for Backend {
                     vulnerabilities,
                 );
 
-            debug!("Found {} diagnostic vulnerabilities", diagnostics.len());
             debug!("Diagnostics: {:?}", diagnostics);
             self.client
                 .publish_diagnostics(params.text_document.uri, diagnostics, None)
@@ -162,6 +177,8 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        // TODO Dont enable this until the backend servers have caching
+        return;
         info!("doc changed {}", params.text_document.uri);
 
         let ranged_purls =
@@ -244,6 +261,7 @@ impl LanguageServer for Backend {
         let line_number = params.text_document_position_params.position.line;
         let uri = params.text_document_position_params.text_document.uri;
 
+        info!("Hovering over line: {}", line_number);
         match self
             .document_store
             .get_purl_for_position(&uri, line_number as usize)
