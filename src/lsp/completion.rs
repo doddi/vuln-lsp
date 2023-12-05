@@ -3,16 +3,17 @@ use tower_lsp::lsp_types::{
     MarkupKind,
 };
 
-use crate::server::VulnerabilityVersionInfo;
+use crate::server::{Severity, VulnerabilityVersionInfo};
 
 impl From<VulnerabilityVersionInfo> for CompletionItem {
     fn from(value: VulnerabilityVersionInfo) -> Self {
-        let markdown = build_markdown(&value);
+        let documentation = build_documentation(&value);
+        let summary = build_summary(&value);
         CompletionItem {
-            label: format!("{}", value.purl),
+            label: value.purl.version,
             kind: Some(CompletionItemKind::TEXT),
-            detail: Some(value.information.summary),
-            documentation: Some(markdown),
+            detail: Some(summary),
+            documentation: Some(documentation),
             deprecated: None,
             preselect: None,
             sort_text: None,
@@ -30,7 +31,22 @@ impl From<VulnerabilityVersionInfo> for CompletionItem {
         }
     }
 }
-fn build_markdown(value: &VulnerabilityVersionInfo) -> Documentation {
+
+fn build_summary(value: &VulnerabilityVersionInfo) -> String {
+    value
+        .vulnerabilities
+        .iter()
+        .fold("".to_string(), |acc, vulnerability| {
+            format!("{acc}\n\n{}", vulnerability.summary)
+        })
+    // value
+    //     .vulnerabilities
+    //     .iter()
+    //     .map(|vulnerability| format!("{}\n\n", vulnerability.summary))
+    //     .collect()
+}
+
+fn build_documentation(value: &VulnerabilityVersionInfo) -> Documentation {
     Documentation::MarkupContent(MarkupContent {
         kind: MarkupKind::Markdown,
         value: format_value(value),
@@ -40,29 +56,47 @@ fn build_markdown(value: &VulnerabilityVersionInfo) -> Documentation {
 fn format_value(value: &VulnerabilityVersionInfo) -> String {
     [
         format!(
-            "# {}: {:?}\n\n",
-            value.purl.version, value.information.severity
+            "{} has highest severity of {:?}\n\n",
+            value.purl.version,
+            highlight_severity(value)
         ),
-        "****".to_string(),
         format_summary(value),
-        "****".to_string(),
         format_detail(value),
     ]
     .join("\n")
 }
 
+fn highlight_severity(value: &VulnerabilityVersionInfo) -> Severity {
+    value
+        .vulnerabilities
+        .iter()
+        .map(|vulnerability| vulnerability.severity.clone())
+        .max()
+        .unwrap_or(Severity::None)
+}
+
 fn format_summary(value: &VulnerabilityVersionInfo) -> String {
-    format!("## Summary\n\n{}\n\n", value.information.summary)
+    value
+        .vulnerabilities
+        .iter()
+        .fold("".to_string(), |acc, vulnerability| {
+            format!("{acc}\n\n{}", vulnerability.summary)
+        })
 }
 
 fn format_detail(value: &VulnerabilityVersionInfo) -> String {
-    format!("## Detail\n\n{}\n\n", value.information.detail)
+    value
+        .vulnerabilities
+        .iter()
+        .fold("".to_string(), |acc, vulnerability| {
+            format!("{acc}\n\n{}", vulnerability.detail)
+        })
 }
 
 pub fn build_response(server_information: Vec<VulnerabilityVersionInfo>) -> CompletionResponse {
     let versions = server_information
         .into_iter()
-        .map(|version| version.into())
+        .map(|vulnerability| vulnerability.into())
         .collect();
     CompletionResponse::Array(versions)
 }

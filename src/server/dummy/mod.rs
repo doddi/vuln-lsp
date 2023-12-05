@@ -1,38 +1,11 @@
 use async_trait::async_trait;
+use rand::Rng;
 
 use super::{purl::Purl, Information, Severity, VulnerabilityServer, VulnerabilityVersionInfo};
 
 pub struct Dummy;
 
-impl Dummy {
-    // async fn get_version_information_for_purl(
-    //     &self,
-    //     purl: &Purl,
-    // ) -> VulnerabilityInformationResponse {
-    //     // TODO Fetch from the real endpoint
-    //     VulnerabilityInformationResponse {
-    //         purl: purl.clone(),
-    //         versions: vec![
-    //             VulnerabilityVersionInfo {
-    //                 version: "1.0.0".to_string(),
-    //                 severity: Severity::High,
-    //                 information: Information {
-    //                     summary: "Summary 1".to_string(),
-    //                     detail: "Detail 1".to_string(),
-    //                 },
-    //             },
-    //             VulnerabilityVersionInfo {
-    //                 version: "2.0.0".to_string(),
-    //                 severity: Severity::None,
-    //                 information: Information {
-    //                     summary: "Summary 2".to_string(),
-    //                     detail: "Detail 2".to_string(),
-    //                 },
-    //             },
-    //         ],
-    //     }
-    // }
-}
+impl Dummy {}
 
 #[async_trait]
 impl VulnerabilityServer for Dummy {
@@ -40,22 +13,25 @@ impl VulnerabilityServer for Dummy {
         &self,
         purl: Purl,
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
+        let mut other_purl = purl.clone();
+        other_purl.version += "1";
+
         let versions = vec![
             VulnerabilityVersionInfo {
                 purl: purl.clone(),
-                information: Information {
+                vulnerabilities: vec![Information {
                     summary: "Summary 1".to_string(),
                     severity: Severity::High,
                     detail: "Detail 1".to_string(),
-                },
+                }],
             },
             VulnerabilityVersionInfo {
                 purl: purl.clone(),
-                information: Information {
+                vulnerabilities: vec![Information {
                     summary: "Summary 2".to_string(),
-                    severity: Severity::None,
+                    severity: Severity::Low,
                     detail: "Detail 2".to_string(),
-                },
+                }],
             },
         ];
         anyhow::Ok(versions)
@@ -70,26 +46,26 @@ impl VulnerabilityServer for Dummy {
             .enumerate()
             .map(|(index, purl)| VulnerabilityVersionInfo {
                 purl: purl.clone(),
-                information: Information {
+                vulnerabilities: vec![Information {
                     summary: format!("Summary {index}").to_string(),
-                    severity: Severity::High,
+                    severity: random_severity(),
                     detail: format!("Detail {index}").to_string(),
-                },
+                }],
             })
             .collect();
         anyhow::Ok(response)
     }
+}
 
-    // async fn get_component_information(
-    //     &self,
-    //     purls: Vec<Purl>,
-    // ) -> anyhow::Result<Vec<VulnerabilityInformationResponse>> {
-    //     let purls = futures::future::join_all(
-    //         purls
-    //             .iter()
-    //             .map(|purl| self.get_version_information_for_purl(purl)),
-    //     )
-    //     .await;
-    //     anyhow::Ok(purls)
-    // }
+fn random_severity() -> Severity {
+    let mut rng = rand::thread_rng();
+    let severity = rng.gen_range(0..5);
+    match severity {
+        0 => Severity::Critical,
+        1 => Severity::High,
+        2 => Severity::Medium,
+        3 => Severity::Low,
+        4 => Severity::None,
+        _ => Severity::None,
+    }
 }

@@ -82,7 +82,7 @@ impl Visitor<'_> for PurlVisitor {
             _ => return Err(E::custom("invalid purl")),
         };
 
-        let artifact_and_version: Vec<_> = artifact_and_version.split("@").collect();
+        let artifact_and_version: Vec<_> = artifact_and_version.split('@').collect();
         if artifact_and_version.len() != 2 {
             return Err(E::custom("invalid purl, version not found"));
         }

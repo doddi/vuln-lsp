@@ -14,7 +14,18 @@ pub enum VulnerableServerType {
 #[derive(Debug, Clone)]
 pub(crate) struct VulnerabilityVersionInfo {
     pub purl: Purl,
-    pub information: Information,
+    pub vulnerabilities: Vec<Information>,
+}
+
+impl VulnerabilityVersionInfo {
+    pub fn find_highest_severity_vulnerability<'a>(
+        &self,
+        vulnerabilities: &'a [Information],
+    ) -> Option<&'a Information> {
+        vulnerabilities
+            .iter()
+            .max_by(|a, b| a.severity.cmp(&b.severity))
+    }
 }
 
 #[derive(Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]

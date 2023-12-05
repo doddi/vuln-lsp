@@ -15,7 +15,7 @@ To enable OssIndex simply add the `oss-index` command line argument.
 ### Logging
 
 To enable logging add the parameter `--log-level=<Leve>` to the command line
-arguments where `<level>` is any of hte following:
+arguments where `<level>` is any of the following:
 
 - `error`
 - `warn`
@@ -27,6 +27,8 @@ arguments where `<level>` is any of hte following:
 ## Editors
 
 ### Neovim
+
+![neovim](./docs/vuln_vim.gif)
 
 To enable the lsp for neovim, add the following to your `init.lua`:
 
@@ -46,6 +48,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
 This will start the lsp when you open a  `pom.xml`  file.
 
 ### Vscode
+![vscode](./docs/vuln_vscode.gif)
 
 To build:
 
@@ -83,5 +86,5 @@ with the following contents:
 Run the debugger and open the provided `test.anat` file to test the lsp.
 
 ### Intellij
-
+![intellij](./docs/vuln_intellij.gif)
 ## Features
