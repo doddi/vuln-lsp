@@ -11,6 +11,7 @@ struct Args {
     server: String,
 
     base_url: Option<String>,
+    application: Option<String>,
 
     #[clap(short, long)]
     log_level: Option<LogLevel>,
@@ -45,9 +46,13 @@ async fn main() {
     let server_type = match args.server.as_str() {
         "dummy" => server::VulnerableServerType::Dummy,
         "oss-index" => server::VulnerableServerType::OssIndex,
-        "sonatype" => match args.base_url {
-            Some(base_url) => server::VulnerableServerType::Sonatype(base_url),
-            None => panic!("base_url must be specified for the sonatype server type"),
+        "sonatype" => match (args.base_url, args.application) {
+            (Some(base_url), Some(application)) => {
+                server::VulnerableServerType::Sonatype(base_url, application)
+            }
+            _ => panic!(
+                "both base_url and application must be specified for the sonatype server type"
+            ),
         },
         _ => panic!("Unknown server specified"),
     };

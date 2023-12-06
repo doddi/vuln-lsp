@@ -18,7 +18,7 @@ mod pom;
 pub mod server;
 
 pub async fn start(server_type: VulnerableServerType) {
-    let server = create_server(server_type);
+    let server = create_server(server_type).await;
     let document_store = document_store::DocumentStore::new();
 
     let (service, socket) =
@@ -26,16 +26,13 @@ pub async fn start(server_type: VulnerableServerType) {
     Server::new(stdin(), stdout(), socket).serve(service).await;
 }
 
-fn create_server(server_type: VulnerableServerType) -> Box<dyn VulnerabilityServer> {
+async fn create_server(server_type: VulnerableServerType) -> Box<dyn VulnerabilityServer> {
     match server_type {
         VulnerableServerType::Dummy => Box::new(server::dummy::Dummy {}),
-        VulnerableServerType::OssIndex => Box::new(server::ossindex::OssIndex {
-            client: reqwest::Client::new(),
-        }),
-        VulnerableServerType::Sonatype(base_url) => Box::new(server::sonatype::Sonatype {
-            base_url,
-            client: reqwest::Client::new(),
-        }),
+        VulnerableServerType::OssIndex => Box::new(server::ossindex::OssIndex::new()),
+        VulnerableServerType::Sonatype(base_url, application) => {
+            Box::new(server::sonatype::Sonatype::new(base_url, application).await)
+        }
     }
 }
 

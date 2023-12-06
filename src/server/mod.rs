@@ -11,7 +11,7 @@ pub(crate) mod sonatype;
 pub enum VulnerableServerType {
     Dummy,
     OssIndex,
-    Sonatype(String),
+    Sonatype(String, String),
 }
 
 #[derive(Debug, Clone)]

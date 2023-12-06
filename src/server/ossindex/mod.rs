@@ -10,7 +10,13 @@ pub(crate) struct OssIndex {
     pub client: reqwest::Client,
 }
 
-impl OssIndex {}
+impl OssIndex {
+    pub fn new() -> Self {
+        Self {
+            client: reqwest::Client::new(),
+        }
+    }
+}
 
 #[derive(Clone, Serialize)]
 #[serde(untagged)]
