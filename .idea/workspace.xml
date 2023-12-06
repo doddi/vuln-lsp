@@ -8,13 +8,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0fb9973-1354-41aa-acb8-f70f70d8beed" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lsp/diagnostics.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lsp/diagnostics.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/pom/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/pom/parser.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/server/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/server/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/server/ossindex/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/server/ossindex/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/server/purl.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/server/purl.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/server/sonatype/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/server/sonatype/mod.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,7 +44,7 @@
     "RunOnceActivity.CodyProjectSettingsMigration": "true",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "lifecycle",
     "last_opened_file_path": "/home/mdodgson/work/personal/java/test",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -168,11 +162,11 @@
     </configuration>
     <list>
       <item itemvalue="Cargo.Run vuln-lsp" />
+      <item itemvalue="Cargo.Test vuln-lsp" />
       <item itemvalue="Cargo.Test server::ossindex::test::can_deserialize_with_vulnerabilities" />
       <item itemvalue="Cargo.Test server::purl::test::can_deserialize" />
       <item itemvalue="Cargo.Test server::purl::test::can_deserialize_npm" />
       <item itemvalue="Cargo.Test server::purl::test::can_deserialize_struts" />
-      <item itemvalue="Cargo.Test vuln-lsp" />
     </list>
     <recent_temporary>
       <list>
@@ -200,6 +194,7 @@
       <workItem from="1701530293532" duration="300000" />
       <workItem from="1701535059985" duration="3227000" />
       <workItem from="1701539183754" duration="18000" />
+      <workItem from="1701856805340" duration="377000" />
     </task>
     <servers />
   </component>
