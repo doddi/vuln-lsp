@@ -1,3 +1,4 @@
+#![allow(unused)]
 use core::panic;
 
 use async_trait::async_trait;
@@ -87,7 +88,9 @@ impl VulnerabilityServer for Sonatype {
         trace!("Geting versions for {}", purl);
         let request = SonatypeClientRequest::ComponentVersions(
             self.base_url.clone(),
-            ComponentVersionsRequest { package_url: purl },
+            ComponentVersionsRequest {
+                package_url: purl.clone(),
+            },
         );
         let url: Url = request.clone().into();
 
@@ -102,16 +105,30 @@ impl VulnerabilityServer for Sonatype {
                 match response.json::<ComponentVersionsResponse>().await {
                     Ok(payload) => {
                         trace!("payload: {:?}", payload);
-                        anyhow::Ok(vec![])
+                        let purls = payload
+                            .versions
+                            .into_iter()
+                            .map(|version| {
+                                let _purl = purl.clone();
+                                Purl {
+                                    package: _purl.package,
+                                    group_id: _purl.group_id,
+                                    artifact_id: _purl.artifact_id,
+                                    version,
+                                    purl_type: _purl.purl_type,
+                                }
+                            })
+                            .collect();
+                        anyhow::Ok(purls)
                     }
                     Err(err) => {
-                        warn!("error parsing response from ossindex: {}", err);
+                        warn!("error parsing response from lifecycle: {}", err);
                         anyhow::Ok(vec![])
                     }
                 }
             }
             Err(err) => {
-                warn!("error sending request to ossindex: {}", err);
+                warn!("error sending request to lifecycle: {}", err);
                 anyhow::Ok(vec![])
             }
         }
@@ -137,32 +154,39 @@ impl VulnerabilityServer for Sonatype {
         );
         let url: Url = request.clone().into();
 
-        let builder = reqwest::Client::request(&self.client, reqwest::Method::POST, url)
+        let builder = reqwest::Client::request(&self.client, reqwest::Method::POST, url.clone())
             .basic_auth(self.username, Some(self.password));
 
+        // trace!("about to send {:?} to {:?}", request, url);
         match builder.json(&request).send().await {
             Ok(response) => match response.json::<ComponentDetailsResponse>().await {
                 Ok(component_details) => {
-                    trace!("{:?}", component_details);
+                    trace!("component details {:?}", component_details);
                     anyhow::Ok(
                         component_details
-                            .components
+                            .component_details
                             .into_iter()
-                            .map(|component| component.into())
+                            .map(|component| component.inner.into())
                             .collect(),
                     )
                 }
-                Err(err) => panic!(
-                    "error parsing get component details response from sonatype: {}",
-                    err
-                ),
+                Err(err) => {
+                    warn!("Component Details response error {}", err);
+                    panic!(
+                        "error parsing get component details response from sonatype: {}",
+                        err
+                    )
+                }
             },
-            Err(err) => anyhow::Ok(vec![]),
+            Err(err) => {
+                warn!("Component Details response error: {err}");
+                anyhow::Ok(vec![])
+            }
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum SonatypeClientRequest {
     ComponentVersions(String, ComponentVersionsRequest),
     ComponentDetails(String, ComponentDetailsRequest),
@@ -217,7 +241,7 @@ impl From<SonatypeClientRequest> for Url {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct ComponentVersionsRequest {
     #[serde(rename = "packageUrl")]
     pub package_url: Purl,
@@ -261,34 +285,34 @@ struct WrappedPurl {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ComponentDetailsResponse {
-    pub components: Vec<WrappedComponent>,
+    pub component_details: Vec<WrappedComponentDetails>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
-struct WrappedComponent {
-    inner: ComponentDetails,
+struct WrappedComponentDetails {
+    pub inner: ComponentDetails,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ComponentDetails {
     pub component: Component,
-    pub mach_state: String,
-    pub relative_popularity: u32,
-    pub hygiene_rating: String,
-    pub integrity_rating: String,
-    pub license_data: Vec<LicenseData>,
+    pub match_state: String,
+    // pub relative_popularity: u32,
+    // pub hygiene_rating: String,
+    // pub integrity_rating: String,
+    // pub license_data: Vec<LicenseData>,
     pub security_data: SecurityData,
 }
 
-impl From<WrappedComponent> for VulnerabilityVersionInfo {
-    fn from(value: WrappedComponent) -> Self {
+impl From<ComponentDetails> for VulnerabilityVersionInfo {
+    fn from(value: ComponentDetails) -> Self {
         VulnerabilityVersionInfo {
-            purl: value.inner.component.package_url,
+            purl: value.component.package_url,
             vulnerabilities: value
-                .inner
                 .security_data
                 .security_issues
                 .into_iter()
@@ -333,13 +357,16 @@ impl From<SecurityIssue> for Information {
 
 impl From<f32> for Severity {
     fn from(value: f32) -> Self {
-        match value {
-            0.0..=1.0 => Severity::None,
-            1.1..=3.9 => Severity::Low,
-            4.0..=6.9 => Severity::Medium,
-            7.0..=8.9 => Severity::High,
-            9.0..=10.0 => Severity::Critical,
-            _ => panic!("invalid severity value: {}", value),
+        if value > 9.0 {
+            Severity::Critical
+        } else if value > 7.0 {
+            Severity::High
+        } else if value > 4.0 {
+            Severity::Medium
+        } else if value > 0.0 {
+            Severity::Low
+        } else {
+            Severity::None
         }
     }
 }
@@ -365,6 +392,7 @@ mod test {
                     group_id: "org.apache.commons".to_owned(),
                     artifact_id: "commons".to_owned(),
                     version: "1.4.0".to_owned(),
+                    purl_type: Some("jar".to_string()),
                 },
             },
         );
@@ -378,7 +406,7 @@ mod test {
         let actual = serde_json::to_string(&request).unwrap();
         let expected: String = r#"
             {
-                "packageUrl":"pkg:maven/org.apache.commons/commons@1.4.0"
+                "packageUrl":"pkg:maven/org.apache.commons/commons@1.4.0?type=jar"
             }
             "#
         .chars()
@@ -471,6 +499,7 @@ mod test {
                             group_id: "org.apache.commons".to_owned(),
                             artifact_id: "commons".to_owned(),
                             version: "1.4.0".to_owned(),
+                            purl_type: Some("jar".to_string()),
                         },
                     },
                 }],
@@ -486,7 +515,7 @@ mod test {
             {
                 "components": [
                     {
-                        "packageUrl":"pkg:maven/org.apache.commons/commons@1.4.0"
+                        "packageUrl":"pkg:maven/org.apache.commons/commons@1.4.0?type=jar"
                     }
                 ]
             }
@@ -502,79 +531,168 @@ mod test {
     fn can_deserialize_get_component_details_response() {
         let response = r#"
         {
-            "components": [
+            "componentDetails": [
                 {
                     "component": {
-                        "packageUrl": "pkg:maven/org.apache.commons/commons@1.4.0",
-                        "displayName": "org.apache.commons:commons"
+                        "packageUrl": "pkg:maven/tomcat/tomcat-util@5.5.23?type=jar",
+                        "hash": "1249e25aebb15358bedd",
+                        "componentIdentifier": {
+                            "format": "maven",
+                            "coordinates": {
+                                "artifactId": "tomcat-util",
+                                "classifier": "",
+                                "extension": "jar",
+                                "groupId": "tomcat",
+                                "version": "5.5.23"
+                            }
+                        },
+                        "displayName": "tomcat : tomcat-util : 5.5.23"
                     },
-                    "machState": "NOT_EVALUATED",
-                    "relativePopularity": 0,
-                    "hygieneRating": "NOT_RATED",
-                    "integrityRating": "NOT_RATED",
-                    "licenseData": [
-                        {
-                            "licenseId": "Apache-2.0",
-                            "licenseName": "Apache License 2.0"
-                        }
-                    ],
+                    "matchState": "exact",
+                    "catalogDate": "2008-01-24T04:19:17.000Z",
+                    "relativePopularity": 73,
+                    "licenseData": {
+                        "declaredLicenses": [
+                            {
+                                "licenseId": "Apache-2.0",
+                                "licenseName": "Apache-2.0"
+                            }
+                        ],
+                        "observedLicenses": [
+                            {
+                                "licenseId": "No-Source-License",
+                                "licenseName": "No Source License"
+                            }
+                        ],
+                        "effectiveLicenses": [
+                            {
+                                "licenseId": "Apache-2.0",
+                                "licenseName": "Apache-2.0"
+                            }
+                        ]
+                    },
+                    "integrityRating": null,
+                    "hygieneRating": null,
                     "securityData": {
                         "securityIssues": [
                             {
-                                "source": "NVD",
-                                "reference": "CVE-2018-11771",
-                                "severity": 7.5,
-                                "url": "https://nvd.nist.gov/vuln/detail/CVE-2018-11771",
-                                "threatCategory": "HIGH"
+                                "source": "cve",
+                                "reference": "CVE-2007-3385",
+                                "severity": 4.3,
+                                "url": "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2007-3385",
+                                "threatCategory": "severe"
                             },
                             {
-                                "source": "NVD",
-                                "reference": "CVE-2018-11772",
+                                "source": "cve",
+                                "reference": "CVE-2007-5333",
+                                "severity": 5.0,
+                                "url": "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2007-5333",
+                                "threatCategory": "severe"
+                            },
+                            {
+                                "source": "cve",
+                                "reference": "CVE-2011-2526",
+                                "severity": 4.4,
+                                "url": "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2011-2526",
+                                "threatCategory": "severe"
+                            },
+                            {
+                                "source": "cve",
+                                "reference": "CVE-2012-0022",
+                                "severity": 5.0,
+                                "url": "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2012-0022",
+                                "threatCategory": "severe"
+                            },
+                            {
+                                "source": "cve",
+                                "reference": "CVE-2014-0099",
+                                "severity": 4.3,
+                                "url": "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2014-0099",
+                                "threatCategory": "severe"
+                            },
+                            {
+                                "source": "cve",
+                                "reference": "CVE-2015-5345",
+                                "severity": 5.3,
+                                "url": "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2015-5345",
+                                "threatCategory": "severe"
+                            },
+                            {
+                                "source": "cve",
+                                "reference": "CVE-2016-6794",
+                                "severity": 5.3,
+                                "url": "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-6794",
+                                "threatCategory": "severe"
+                            },
+                            {
+                                "source": "cve",
+                                "reference": "CVE-2017-5647",
                                 "severity": 7.5,
-                                "url": "https://nvd.nist.gov/vuln/detail/CVE-2018-11772",
-                                "threatCategory": "HIGH"
+                                "url": "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5647",
+                                "threatCategory": "critical"
                             }
                         ]
+                    },
+                    "projectData": {
+                        "firstReleaseDate": "2005-08-01T10:50:32.000+01:00",
+                        "lastReleaseDate": "2008-01-24T04:19:17.000Z",
+                        "projectMetadata": {
+                            "description": "The Apache Software Foundation provides support for the Apache community of open-source software projects.\n    The Apache projects are characterized by a collaborative, consensus based development process, an open and\n    pragmatic software license, and a desire to create high quality software that leads the way in its field.\n    We consider ourselves not simply a group of projects sharing a server, but rather a community of developers\n    and users.",
+                            "organization": "The Apache Software Foundation"
+                        },
+                        "sourceControlManagement": {
+                            "scmUrl": "https://svn.apache.org/repos/asf/maven/pom/tags/apache-4/tomcat-parent/tomcat-util"
+                        }
                     }
                 }
             ]
         }
         "#;
         let actual = serde_json::from_str::<ComponentDetailsResponse>(response).unwrap();
-        assert_eq!(actual.components.len(), 1);
+        assert_eq!(actual.component_details.len(), 1);
         assert_eq!(
-            actual.components[0].inner.component.package_url,
+            actual.component_details[0].inner.component.package_url,
             Purl {
                 package: "maven".to_owned(),
-                group_id: "org.apache.commons".to_owned(),
-                artifact_id: "commons".to_owned(),
-                version: "1.4.0".to_owned(),
+                group_id: "tomcat".to_owned(),
+                artifact_id: "tomcat-util".to_owned(),
+                version: "5.5.23".to_owned(),
+                purl_type: Some("jar".to_string()),
             }
         );
         assert_eq!(
-            actual.components[0].inner.component.display_name,
-            "org.apache.commons:commons"
+            actual.component_details[0].inner.component.display_name,
+            "tomcat : tomcat-util : 5.5.23"
         );
-        assert_eq!(actual.components[0].inner.mach_state, "NOT_EVALUATED");
-        assert_eq!(actual.components[0].inner.relative_popularity, 0);
-        assert_eq!(actual.components[0].inner.hygiene_rating, "NOT_RATED");
-        assert_eq!(actual.components[0].inner.integrity_rating, "NOT_RATED");
+        assert_eq!(actual.component_details[0].inner.match_state, "exact");
+        // assert_eq!(actual.component_details[0].inner.relative_popularity, 0);
+        // assert_eq!(
+        //     actual.component_details[0].inner.hygiene_rating,
+        //     "NOT_RATED"
+        // );
+        // assert_eq!(
+        //     actual.component_details[0].inner.integrity_rating,
+        //     "NOT_RATED"
+        // );
         assert_eq!(
-            actual.components[0]
+            actual.component_details[0]
                 .inner
                 .security_data
                 .security_issues
                 .len(),
-            2
+            8
         );
-        let security_issues = &actual.components[0].inner.security_data.security_issues;
-        assert_eq!(security_issues[0].source, "NVD");
-        assert_eq!(security_issues[0].reference, "CVE-2018-11771");
-        assert_eq!(security_issues[0].severity, 7.5);
+        let security_issues = &actual.component_details[0]
+            .inner
+            .security_data
+            .security_issues;
+        assert_eq!(security_issues[0].source, "cve");
+        assert_eq!(security_issues[0].reference, "CVE-2007-3385");
+        assert_eq!(security_issues[0].severity, 4.3);
         assert_eq!(
             security_issues[0].url,
-            "https://nvd.nist.gov/vuln/detail/CVE-2018-11771"
+            "http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2007-3385",
         );
-        assert_eq!(security_issues[0].threat_category, "HIGH");
+        assert_eq!(security_issues[0].threat_category, "severe");
     }
 }

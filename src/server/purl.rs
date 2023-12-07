@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::pom::parser::Dependency;
 
@@ -12,15 +13,24 @@ pub struct Purl {
     pub group_id: String,
     pub artifact_id: String,
     pub version: String,
+    pub purl_type: Option<String>,
 }
 
 impl Display for Purl {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
+        let _ = write!(
             f,
             "pkg:{}/{}/{}@{}",
             self.package, self.group_id, self.artifact_id, self.version
-        )
+        );
+
+        match &self.purl_type {
+            Some(purl_type) => {
+                let _ = write!(f, "?type={purl_type}");
+                Ok(())
+            }
+            None => Ok(()),
+        }
     }
 }
 
@@ -87,13 +97,35 @@ impl Visitor<'_> for PurlVisitor {
             return Err(E::custom("invalid purl, version not found"));
         }
 
+        let artifact_id = artifact_and_version[0].to_string();
+        let version_split: Vec<_> = artifact_and_version[1].split('?').collect();
+
+        let (version, purl_type) = match version_split.len() {
+            0 => {
+                warn!("No version available");
+                ("", None)
+            }
+            1 => (version_split[0], None),
+            _ => (version_split[0], find_package_type(version_split[1])),
+        };
+
         Ok(Purl {
             package: package_type.to_string(),
             group_id: group_id.to_string(),
-            artifact_id: artifact_and_version[0].to_string(),
-            version: artifact_and_version[1].to_string(),
+            artifact_id,
+            version: version.to_string(),
+            purl_type,
         })
     }
+}
+
+fn find_package_type(qualifiers: &str) -> Option<String> {
+    let split: Vec<_> = qualifiers.split('&').collect();
+
+    split
+        .into_iter()
+        .find(|qualifier| qualifier.starts_with("type="))
+        .and_then(|type_qualifier| Some(type_qualifier.replace("type=", "")))
 }
 
 fn extract_package_type<E>(package: &str) -> Result<String, Result<Purl, E>>
@@ -150,19 +182,13 @@ pub(crate) struct Position {
     pub col: usize,
 }
 
-// impl Position {
-//     pub fn new(row: usize, col: usize) -> Self {
-//         Position { row, col }
-//     }
-// }
-
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
     fn can_deserialize() {
-        let purl = "\"pkg:maven/org.apache.commons/commons-lang3@3.9\"";
+        let purl = "\"pkg:maven/org.apache.commons/commons-lang3@3.9?type=jar\"";
         let purl: Purl = serde_json::from_str(purl).unwrap();
 
         assert_eq!(purl.package, "maven");

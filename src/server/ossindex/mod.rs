@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::Url;
@@ -169,6 +168,7 @@ mod test {
             group_id: "org.apache.commons".to_string(),
             artifact_id: "commons-lang3".to_string(),
             version: "3.9".to_string(),
+            purl_type: None,
         }];
 
         let request =
@@ -202,12 +202,14 @@ mod test {
                 group_id: "org.apache.commons".to_string(),
                 artifact_id: "commons-lang3".to_string(),
                 version: "3.9".to_string(),
+                purl_type: None,
             },
             Purl {
                 package: "maven".to_string(),
                 group_id: "org.foo".to_string(),
                 artifact_id: "bar".to_string(),
                 version: "1.0.0".to_string(),
+                purl_type: None,
             },
         ];
 

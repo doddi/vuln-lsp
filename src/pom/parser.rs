@@ -37,6 +37,7 @@ impl From<Dependency> for Purl {
             group_id: value.group_id,
             artifact_id: value.artifact_id,
             version: value.version.unwrap(),
+            purl_type: Some("jar".to_string()),
         }
     }
 }

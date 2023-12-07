@@ -175,33 +175,33 @@ impl LanguageServer for Backend {
         }
     }
 
-    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+    async fn did_change(&self, _params: DidChangeTextDocumentParams) {
         // TODO Dont enable this until the backend servers have caching
         return;
-        info!("doc changed {}", params.text_document.uri);
-
-        let ranged_purls =
-            pom::parser::calculate_dependencies_with_range(&params.content_changes[0].text);
-        debug!("Purls: {:?}", ranged_purls);
-
-        self.document_store.insert(
-            &params.text_document.uri,
-            params.content_changes[0].text.clone(),
-            ranged_purls,
-        );
-
-        match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
-            Ok(dependencies) => {
-                let purls = dependencies
-                    .into_iter()
-                    .map(|dep| dep.into())
-                    .collect::<Vec<_>>();
-
-                // TODO provide feedback through disgnostics message
-                let _response = self.server.get_component_information(purls).await.unwrap();
-            }
-            Err(err) => debug!("Failed to parse dependencies: {}", err),
-        };
+        // info!("doc changed {}", params.text_document.uri);
+        //
+        // let ranged_purls =
+        //     pom::parser::calculate_dependencies_with_range(&params.content_changes[0].text);
+        // debug!("Purls: {:?}", ranged_purls);
+        //
+        // self.document_store.insert(
+        //     &params.text_document.uri,
+        //     params.content_changes[0].text.clone(),
+        //     ranged_purls,
+        // );
+        //
+        // match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
+        //     Ok(dependencies) => {
+        //         let purls = dependencies
+        //             .into_iter()
+        //             .map(|dep| dep.into())
+        //             .collect::<Vec<_>>();
+        //
+        //         // TODO provide feedback through disgnostics message
+        //         let _response = self.server.get_component_information(purls).await.unwrap();
+        //     }
+        //     Err(err) => debug!("Failed to parse dependencies: {}", err),
+        // };
     }
 
     async fn completion(
