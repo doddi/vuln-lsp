@@ -122,7 +122,7 @@ impl LanguageServer for Backend {
                     all_commit_characters: None,
                     completion_item: None,
                 }),
-                // hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
+                hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
                 ..ServerCapabilities::default()
             },
             offset_encoding: None,

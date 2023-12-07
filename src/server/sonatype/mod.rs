@@ -19,12 +19,9 @@ pub(crate) struct Sonatype {
 impl Sonatype {
     pub async fn new(base_url: String, application: String) -> Self {
         debug!("Sonatype server created, {base_url}, {application}");
-        let client = reqwest::Client::new();
 
         let username = "admin";
         let password = "admin123";
-        // let application_id =
-        //     get_application_id(&client, username, password, &base_url, &application).await;
 
         Self {
             client: reqwest::Client::new(),
@@ -165,12 +162,23 @@ impl VulnerabilityServer for Sonatype {
     }
 }
 
-#[derive(Clone, Serialize)]
-#[serde(untagged)]
+#[derive(Clone)]
 enum SonatypeClientRequest {
-    ComponentVersions(#[serde(skip)] String, ComponentVersionsRequest),
-    ComponentDetails(#[serde(skip)] String, ComponentDetailsRequest),
-    GetAllApplications(#[serde(skip)] String, #[serde(skip)] String),
+    ComponentVersions(String, ComponentVersionsRequest),
+    ComponentDetails(String, ComponentDetailsRequest),
+    GetAllApplications(String, String),
+}
+
+impl Serialize for SonatypeClientRequest {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            SonatypeClientRequest::ComponentVersions(_, request) => request.serialize(serializer),
+            SonatypeClientRequest::ComponentDetails(_, request) => request.serialize(serializer),
+            SonatypeClientRequest::GetAllApplications(_, _) => {
+                panic!("GetAllApplications not implemented")
+            }
+        }
+    }
 }
 
 impl From<SonatypeClientRequest> for Url {
@@ -368,10 +376,16 @@ mod test {
         );
 
         let actual = serde_json::to_string(&request).unwrap();
-        assert_eq!(
-            actual,
-            r#"{"packageUrl":"pkg:maven/org.apache.commons/commons@1.4.0"}"#
-        );
+        let expected: String = r#"
+            {
+                "packageUrl":"pkg:maven/org.apache.commons/commons@1.4.0"
+            }
+            "#
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
+
+        assert_eq!(actual, expected);
     }
 
     #[test]
