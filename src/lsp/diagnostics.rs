@@ -1,4 +1,5 @@
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
+use tracing::trace;
 
 use crate::server::{self, purl::PurlRange, VulnerabilityVersionInfo};
 
@@ -18,6 +19,9 @@ pub fn calculate_diagnostics_for_vulnerabilities(
     ranged_purls: Vec<PurlRange>,
     vulnerabilities: Vec<VulnerabilityVersionInfo>,
 ) -> Vec<Diagnostic> {
+    trace!("Matching up purls: {:?}", ranged_purls);
+    trace!("Against: {:?}", vulnerabilities);
+
     let mut diagnostics = Vec::new();
     for possible_vulnerability_match in vulnerabilities {
         for ranged_purl in &ranged_purls {

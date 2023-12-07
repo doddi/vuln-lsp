@@ -1,4 +1,3 @@
-use log::debug;
 use lsp::document_store::{self, DocumentStore};
 use server::{VulnerabilityServer, VulnerableServerType};
 use tokio::io::{stdin, stdout};
@@ -10,7 +9,7 @@ use tower_lsp::{
     },
     Client, LanguageServer, LspService, Server,
 };
-use tracing::{info, warn};
+use tracing::{debug, info, trace, warn};
 
 use crate::{lsp::diagnostics, server::purl::Purl};
 
@@ -19,7 +18,7 @@ mod pom;
 pub mod server;
 
 pub async fn start(server_type: VulnerableServerType) {
-    let server = create_server(server_type);
+    let server = create_server(server_type).await;
     let document_store = document_store::DocumentStore::new();
 
     let (service, socket) =
@@ -27,12 +26,13 @@ pub async fn start(server_type: VulnerableServerType) {
     Server::new(stdin(), stdout(), socket).serve(service).await;
 }
 
-fn create_server(server_type: VulnerableServerType) -> Box<dyn VulnerabilityServer> {
+async fn create_server(server_type: VulnerableServerType) -> Box<dyn VulnerabilityServer> {
     match server_type {
         VulnerableServerType::Dummy => Box::new(server::dummy::Dummy {}),
-        VulnerableServerType::OssIndex => Box::new(server::ossindex::OssIndex {
-            client: reqwest::Client::new(),
-        }),
+        VulnerableServerType::OssIndex => Box::new(server::ossindex::OssIndex::new()),
+        VulnerableServerType::Sonatype(base_url, application) => {
+            Box::new(server::sonatype::Sonatype::new(base_url, application).await)
+        }
     }
 }
 
@@ -116,7 +116,7 @@ impl LanguageServer for Backend {
                     TextDocumentSyncKind::FULL,
                 )),
                 completion_provider: Some(lsp_types::CompletionOptions {
-                    resolve_provider: Some(false),
+                    resolve_provider: Some(true),
                     trigger_characters: Some(vec![">".to_string()]),
                     work_done_progress_options: Default::default(),
                     all_commit_characters: None,
@@ -144,7 +144,6 @@ impl LanguageServer for Backend {
 
         let ranged_purls =
             pom::parser::calculate_dependencies_with_range(&params.text_document.text);
-        debug!("Purls: {:?}", ranged_purls);
 
         self.document_store.insert(
             &params.text_document.uri,
@@ -161,7 +160,7 @@ impl LanguageServer for Backend {
             .collect();
 
         if let Ok(vulnerabilities) = self.server.get_component_information(purls).await {
-            debug!("Vulnerabilities: {:?}", vulnerabilities);
+            trace!("Vulnerabilities: {:?}", vulnerabilities);
 
             let diagnostics: Vec<Diagnostic> =
                 diagnostics::calculate_diagnostics_for_vulnerabilities(
@@ -169,40 +168,40 @@ impl LanguageServer for Backend {
                     vulnerabilities,
                 );
 
-            debug!("Diagnostics: {:?}", diagnostics);
+            trace!("Diagnostics: {:?}", diagnostics);
             self.client
                 .publish_diagnostics(params.text_document.uri, diagnostics, None)
                 .await;
         }
     }
 
-    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+    async fn did_change(&self, _params: DidChangeTextDocumentParams) {
         // TODO Dont enable this until the backend servers have caching
         return;
-        info!("doc changed {}", params.text_document.uri);
-
-        let ranged_purls =
-            pom::parser::calculate_dependencies_with_range(&params.content_changes[0].text);
-        debug!("Purls: {:?}", ranged_purls);
-
-        self.document_store.insert(
-            &params.text_document.uri,
-            params.content_changes[0].text.clone(),
-            ranged_purls,
-        );
-
-        match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
-            Ok(dependencies) => {
-                let purls = dependencies
-                    .into_iter()
-                    .map(|dep| dep.into())
-                    .collect::<Vec<_>>();
-
-                // TODO provide feedback through disgnostics message
-                let _response = self.server.get_component_information(purls).await.unwrap();
-            }
-            Err(err) => debug!("Failed to parse dependencies: {}", err),
-        };
+        // info!("doc changed {}", params.text_document.uri);
+        //
+        // let ranged_purls =
+        //     pom::parser::calculate_dependencies_with_range(&params.content_changes[0].text);
+        // debug!("Purls: {:?}", ranged_purls);
+        //
+        // self.document_store.insert(
+        //     &params.text_document.uri,
+        //     params.content_changes[0].text.clone(),
+        //     ranged_purls,
+        // );
+        //
+        // match pom::parser::get_dependencies(&params.content_changes[0].text.clone()) {
+        //     Ok(dependencies) => {
+        //         let purls = dependencies
+        //             .into_iter()
+        //             .map(|dep| dep.into())
+        //             .collect::<Vec<_>>();
+        //
+        //         // TODO provide feedback through disgnostics message
+        //         let _response = self.server.get_component_information(purls).await.unwrap();
+        //     }
+        //     Err(err) => debug!("Failed to parse dependencies: {}", err),
+        // };
     }
 
     async fn completion(
@@ -226,13 +225,12 @@ impl LanguageServer for Backend {
                     let line_position = params.text_document_position.position.line;
 
                     if pom::parser::is_editing_version(&items.document, line_position as usize) {
-                        debug!("Fetching purl");
                         match pom::parser::get_purl(&items.document, line_position as usize) {
                             Some(purl) => {
-                                info!("PURL: {:?}", purl);
+                                debug!("PURL: {:?}", purl);
                                 match self.server.get_versions_for_purl(purl).await {
                                     Ok(response) => {
-                                        Ok(Some(lsp::completion::build_response(response)))
+                                        Ok(Some(lsp::completion::build_initial_response(response)))
                                     }
                                     // TODO Add better error handling
                                     Err(_) => Ok(None),
@@ -250,6 +248,24 @@ impl LanguageServer for Backend {
                 warn!("Document not found");
                 // TODO Should probably send back an error as the document should always be known
                 Ok(None)
+            }
+        }
+    }
+
+    async fn completion_resolve(
+        &self,
+        params: lsp_types::CompletionItem,
+    ) -> tower_lsp::jsonrpc::Result<lsp_types::CompletionItem> {
+        debug!("completion_resolve: {:?}", params);
+        let data = params.data.unwrap();
+        let purl = serde_json::from_value(data).unwrap();
+
+        debug!("about to lookup completion for {}", purl);
+        match self.server.get_component_information(vec![purl]).await {
+            Ok(vulnerabilities) => Ok(lsp::completion::build_response(&vulnerabilities[0])),
+            Err(_) => {
+                debug!("Failed to get component information");
+                Err(tower_lsp::jsonrpc::Error::internal_error())
             }
         }
     }

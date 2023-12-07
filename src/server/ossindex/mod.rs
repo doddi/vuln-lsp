@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::Url;
@@ -10,7 +9,13 @@ pub(crate) struct OssIndex {
     pub client: reqwest::Client,
 }
 
-impl OssIndex {}
+impl OssIndex {
+    pub fn new() -> Self {
+        Self {
+            client: reqwest::Client::new(),
+        }
+    }
+}
 
 #[derive(Clone, Serialize)]
 #[serde(untagged)]
@@ -146,11 +151,9 @@ impl VulnerabilityServer for OssIndex {
         }
     }
 
-    async fn get_versions_for_purl(
-        &self,
-        _purl: Purl,
-    ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
-        Err(anyhow!("not implemented"))
+    async fn get_versions_for_purl(&self, purl: Purl) -> anyhow::Result<Vec<Purl>> {
+        // TODO figure out how to get versions from ossindex
+        anyhow::Ok(vec![purl])
     }
 }
 
@@ -165,6 +168,7 @@ mod test {
             group_id: "org.apache.commons".to_string(),
             artifact_id: "commons-lang3".to_string(),
             version: "3.9".to_string(),
+            purl_type: None,
         }];
 
         let request =
@@ -198,12 +202,14 @@ mod test {
                 group_id: "org.apache.commons".to_string(),
                 artifact_id: "commons-lang3".to_string(),
                 version: "3.9".to_string(),
+                purl_type: None,
             },
             Purl {
                 package: "maven".to_string(),
                 group_id: "org.foo".to_string(),
                 artifact_id: "bar".to_string(),
                 version: "1.0.0".to_string(),
+                purl_type: None,
             },
         ];
 
