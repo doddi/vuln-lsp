@@ -10,7 +10,9 @@ struct Args {
     #[clap(default_value = "dummy")]
     server: String,
 
+    #[clap(short, long)]
     base_url: Option<String>,
+    #[clap(short, long)]
     application: Option<String>,
 
     #[clap(short, long)]

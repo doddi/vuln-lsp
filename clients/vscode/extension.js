@@ -12,8 +12,8 @@ module.exports = {
       },
       debug: {
         command: "vuln-lsp",
-        args: ["dummy", "--log-level=trace"],
-        // args: ["--file", `${tmpdir}/lsp.log`, "--level", "TRACE"],
+        // args: ["dummy", "--log-level=trace"],
+        args: ["oss-index", "--log-level=trace"],
       },
     };
 

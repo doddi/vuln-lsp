@@ -15,7 +15,7 @@
             "args": [
               "--extensionDevelopmentPath=${workspaceRoot}",
               "--disable-extensions",
-              "/home/mdodgson/work/personal/java/test"
+              "/Users/markdodgson/work/personal/java/test"
             ]
           }
     ]
