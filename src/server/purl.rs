@@ -7,7 +7,7 @@ use tracing::warn;
 
 use crate::pom::parser::Dependency;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Purl {
     pub package: String,
     pub group_id: String,

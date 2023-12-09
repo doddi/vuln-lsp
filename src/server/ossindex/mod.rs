@@ -1,20 +1,99 @@
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::Url;
 use tracing::{debug, trace, warn};
 
+use crate::server;
+
 use super::{purl::Purl, Information, VulnerabilityServer, VulnerabilityVersionInfo};
 
 pub(crate) struct OssIndex {
     pub client: reqwest::Client,
+    cacher: Arc<Mutex<server::cacher::Cacher<Purl, VulnerabilityVersionInfo>>>,
 }
 
 impl OssIndex {
     pub fn new() -> Self {
         Self {
             client: reqwest::Client::new(),
+            cacher: Arc::new(Mutex::new(server::cacher::Cacher::new())),
         }
     }
+
+    async fn do_get_component_information(
+        &self,
+        purls: Vec<Purl>,
+    ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
+        // OssIndex does not like any qualifiers being specified so removed them
+        let oss_purls = purls
+            .iter()
+            .map(|purl| Purl {
+                purl_type: None,
+                package: purl.clone().package,
+                group_id: purl.clone().group_id,
+                artifact_id: purl.clone().artifact_id,
+                version: purl.clone().version,
+            })
+            .collect();
+
+        let request = OssClientRequest::ComponentReport(ComponentReportRequest {
+            coordinates: oss_purls,
+        });
+
+        let url: Url = request.clone().into();
+
+        debug!("Sending OssIndex request to {}", url);
+        let builder = reqwest::Client::request(&self.client, reqwest::Method::POST, url);
+
+        match builder.json(&request).send().await {
+            Ok(response) => {
+                debug!("response received from OssIndex");
+
+                match response.json::<Vec<ComponentReport>>().await {
+                    Ok(payload) => {
+                        trace!("payload: {:?}", payload);
+                        let data = payload
+                            .into_iter()
+                            .map(|component_report| {
+                                let purl = match_against_purl(
+                                    component_report.coordinates.clone(),
+                                    purls.clone(),
+                                )
+                                .unwrap_or_else(|| component_report.coordinates.clone())
+                                .clone();
+                                ComponentReport {
+                                    coordinates: purl,
+                                    ..component_report
+                                }
+                                .into()
+                            })
+                            .collect();
+                        anyhow::Ok(data)
+                    }
+                    Err(err) => {
+                        warn!("error parsing response from ossindex: {}", err);
+                        anyhow::Ok(vec![])
+                    }
+                }
+            }
+            Err(err) => {
+                warn!("error sending request to ossindex: {}", err);
+                anyhow::Ok(vec![])
+            }
+        }
+    }
+}
+
+fn match_against_purl(oss_index_purl: Purl, original_purls: Vec<Purl>) -> Option<Purl> {
+    original_purls.into_iter().find(|purl| {
+        oss_index_purl.package == purl.package
+            && oss_index_purl.group_id == purl.group_id
+            && oss_index_purl.artifact_id == purl.artifact_id
+            && oss_index_purl.version == purl.version
+    })
 }
 
 #[derive(Clone, Serialize)]
@@ -70,7 +149,7 @@ impl From<ComponentReportVulnerability> for Information {
 }
 
 fn calculate_violation_level(cvss_score: f32) -> super::Severity {
-    if cvss_score <= 3.9 {
+    if cvss_score <= 3.9 && cvss_score > 0.0 {
         super::Severity::Low
     } else if cvss_score > 3.9 && cvss_score <= 6.9 {
         super::Severity::Medium
@@ -121,34 +200,14 @@ impl VulnerabilityServer for OssIndex {
         &self,
         purls: Vec<Purl>,
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
-        let request =
-            OssClientRequest::ComponentReport(ComponentReportRequest { coordinates: purls });
-
-        let url: Url = request.clone().into();
-
-        debug!("Sending OssIndex request to {}", url);
-        let builder = reqwest::Client::request(&self.client, reqwest::Method::POST, url);
-
-        match builder.json(&request).send().await {
-            Ok(response) => {
-                debug!("response received from OssIndex");
-
-                match response.json::<Vec<ComponentReport>>().await {
-                    Ok(payload) => {
-                        trace!("payload: {:?}", payload);
-                        anyhow::Ok(payload.into_iter().map(|x| x.into()).collect())
-                    }
-                    Err(err) => {
-                        warn!("error parsing response from ossindex: {}", err);
-                        anyhow::Ok(vec![])
-                    }
-                }
-            }
-            Err(err) => {
-                warn!("error sending request to ossindex: {}", err);
-                anyhow::Ok(vec![])
-            }
-        }
+        let mut cacher = self.cacher.lock().await;
+        cacher
+            .fetch(
+                purls,
+                |purls| self.do_get_component_information(purls),
+                |x| x.purl.clone(),
+            )
+            .await
     }
 
     async fn get_versions_for_purl(&self, purl: Purl) -> anyhow::Result<Vec<Purl>> {

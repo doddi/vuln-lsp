@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use self::purl::Purl;
 
+pub(crate) mod cacher;
 pub(crate) mod dummy;
 pub(crate) mod ossindex;
 pub mod purl;
