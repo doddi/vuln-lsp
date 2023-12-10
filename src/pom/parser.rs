@@ -42,15 +42,6 @@ impl From<Dependency> for Purl {
     }
 }
 
-pub fn get_dependencies(content: &str) -> anyhow::Result<Vec<Dependency>> {
-    let project = to_project(content)?;
-    Ok(project.dependencies.dependency)
-}
-
-fn to_project(content: &str) -> anyhow::Result<Project> {
-    Ok(serde_xml_rs::from_str::<Project>(content)?)
-}
-
 pub fn is_editing_version(document: &str, line_position: usize) -> bool {
     let lines = document.lines().collect::<Vec<&str>>();
     let line = lines.get(line_position).unwrap();
@@ -184,7 +175,8 @@ mod test {
 
             </project>
             "#;
-        let project = to_project(content).unwrap();
+
+        let project = serde_xml_rs::from_str::<Project>(content).unwrap();
 
         assert_eq!(project.group_id, "com.example");
         assert_eq!(project.artifact_id, "demo");

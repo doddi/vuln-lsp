@@ -1,16 +1,20 @@
 #![allow(unused)]
 use core::panic;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
 use tracing::{debug, trace, warn};
 
 use super::{purl::Purl, Information, Severity, VulnerabilityServer, VulnerabilityVersionInfo};
+use crate::server;
 
-#[derive(Default)]
 pub(crate) struct Sonatype {
     pub client: reqwest::Client,
+    cacher: Arc<Mutex<server::cacher::Cacher<Purl, VulnerabilityVersionInfo>>>,
+
     base_url: String,
     // TODO Must do better
     username: &'static str,
@@ -26,9 +30,61 @@ impl Sonatype {
 
         Self {
             client: reqwest::Client::new(),
+            cacher: Arc::new(Mutex::new(server::cacher::Cacher::new())),
             base_url,
             username,
             password,
+        }
+    }
+
+    async fn do_get_component_information(
+        &self,
+        purls: Vec<Purl>,
+    ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
+        trace!("Getting component information for {:?}", purls);
+        let component_details_request = ComponentDetailsRequest {
+            components: purls
+                .into_iter()
+                .map(|purl| WrappedComponentDetailRequest {
+                    inner: WrappedPurl { package_url: purl },
+                })
+                .collect(),
+        };
+
+        let request = SonatypeClientRequest::ComponentDetails(
+            self.base_url.clone(),
+            component_details_request,
+        );
+        let url: Url = request.clone().into();
+
+        let builder = reqwest::Client::request(&self.client, reqwest::Method::POST, url.clone())
+            .basic_auth(self.username, Some(self.password));
+
+        // trace!("about to send {:?} to {:?}", request, url);
+        match builder.json(&request).send().await {
+            Ok(response) => match response.json::<ComponentDetailsResponse>().await {
+                Ok(component_details) => {
+                    trace!("component details {:?}", component_details);
+                    anyhow::Ok(
+                        component_details
+                            .component_details
+                            .into_iter()
+                            .map(|component| component.inner.into())
+                            .collect(),
+                    )
+                }
+                Err(err) => {
+                    warn!("Component Details response error {}", err);
+                    panic!(
+                        "error parsing get component details response from sonatype: {}",
+                        err
+                    )
+                }
+            },
+            Err(err) => {
+                warn!("Component Details response error: {err}");
+                anyhow::Ok(vec![])
+            }
         }
     }
 }
@@ -138,51 +194,15 @@ impl VulnerabilityServer for Sonatype {
         &self,
         purls: Vec<Purl>,
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
-        trace!("Getting component information for {:?}", purls);
-        let component_details_request = ComponentDetailsRequest {
-            components: purls
-                .into_iter()
-                .map(|purl| WrappedComponentDetailRequest {
-                    inner: WrappedPurl { package_url: purl },
-                })
-                .collect(),
-        };
+        let mut cacher = self.cacher.lock().await;
 
-        let request = SonatypeClientRequest::ComponentDetails(
-            self.base_url.clone(),
-            component_details_request,
-        );
-        let url: Url = request.clone().into();
-
-        let builder = reqwest::Client::request(&self.client, reqwest::Method::POST, url.clone())
-            .basic_auth(self.username, Some(self.password));
-
-        // trace!("about to send {:?} to {:?}", request, url);
-        match builder.json(&request).send().await {
-            Ok(response) => match response.json::<ComponentDetailsResponse>().await {
-                Ok(component_details) => {
-                    trace!("component details {:?}", component_details);
-                    anyhow::Ok(
-                        component_details
-                            .component_details
-                            .into_iter()
-                            .map(|component| component.inner.into())
-                            .collect(),
-                    )
-                }
-                Err(err) => {
-                    warn!("Component Details response error {}", err);
-                    panic!(
-                        "error parsing get component details response from sonatype: {}",
-                        err
-                    )
-                }
-            },
-            Err(err) => {
-                warn!("Component Details response error: {err}");
-                anyhow::Ok(vec![])
-            }
-        }
+        cacher
+            .fetch(
+                purls,
+                |purls| self.do_get_component_information(purls),
+                |x| x.purl.clone(),
+            )
+            .await
     }
 }
 

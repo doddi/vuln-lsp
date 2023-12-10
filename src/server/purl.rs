@@ -125,7 +125,7 @@ fn find_package_type(qualifiers: &str) -> Option<String> {
     split
         .into_iter()
         .find(|qualifier| qualifier.starts_with("type="))
-        .and_then(|type_qualifier| Some(type_qualifier.replace("type=", "")))
+        .map(|type_qualifier| type_qualifier.replace("type=", ""))
 }
 
 fn extract_package_type<E>(package: &str) -> Result<String, Result<Purl, E>>
