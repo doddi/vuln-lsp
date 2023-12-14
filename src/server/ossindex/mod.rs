@@ -50,8 +50,9 @@ impl OssIndex {
 
         match builder.json(&request).send().await {
             Ok(response) => {
-                debug!("response received from OssIndex");
+                debug!("response received from OssIndex *");
 
+                trace!("response: {:?}", response);
                 match response.json::<Vec<ComponentReport>>().await {
                     Ok(payload) => {
                         trace!("payload: {:?}", payload);

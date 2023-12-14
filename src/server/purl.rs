@@ -5,8 +5,6 @@ use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::pom::parser::Dependency;
-
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Purl {
     pub package: String,
@@ -137,16 +135,6 @@ where
     }
     let package_type = package.replace("pkg:", "");
     Ok(package_type)
-}
-
-impl From<Purl> for Dependency {
-    fn from(value: Purl) -> Self {
-        Dependency {
-            group_id: value.group_id,
-            artifact_id: value.artifact_id,
-            version: Some(value.version),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

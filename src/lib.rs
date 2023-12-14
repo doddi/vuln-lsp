@@ -1,5 +1,8 @@
 use lsp::document_store::{self, DocumentStore};
+use parsers::ParserManager;
+use reqwest::Url;
 use server::{VulnerabilityServer, VulnerableServerType};
+use thiserror::Error;
 use tokio::io::{stdin, stdout};
 use tower_lsp::{
     lsp_types::{
@@ -14,15 +17,23 @@ use tracing::{debug, info, trace, warn};
 use crate::{lsp::diagnostics, server::purl::Purl};
 
 mod lsp;
-mod pom;
+mod parsers;
 pub mod server;
+
+#[derive(Debug, Error)]
+pub(crate) enum VulnLspError {
+    #[error("Parser not found for {0}")]
+    ParserNotFoundError(Url),
+}
 
 pub async fn start(server_type: VulnerableServerType) {
     let server = create_server(server_type).await;
     let document_store = document_store::DocumentStore::new();
 
-    let (service, socket) =
-        LspService::build(|client| Backend::new(client, server, document_store)).finish();
+    let (service, socket) = LspService::build(|client| {
+        Backend::new(client, server, document_store, ParserManager::new())
+    })
+    .finish();
     Server::new(stdin(), stdout(), socket).serve(service).await;
 }
 
@@ -40,6 +51,7 @@ struct Backend {
     client: Client,
     document_store: DocumentStore,
     server: Box<dyn VulnerabilityServer>,
+    parser_manager: parsers::ParserManager,
 }
 
 impl Backend {
@@ -47,11 +59,13 @@ impl Backend {
         client: Client,
         server: Box<dyn VulnerabilityServer>,
         document_store: DocumentStore,
+        parser_manager: ParserManager,
     ) -> Self {
         Backend {
             client,
             document_store,
             server,
+            parser_manager,
         }
     }
 
@@ -142,36 +156,41 @@ impl LanguageServer for Backend {
 
         debug!("Calculating purls");
 
-        let ranged_purls =
-            pom::parser::calculate_dependencies_with_range(&params.text_document.text);
+        if let Ok(ranged_purls) = self
+            .parser_manager
+            .parse(&params.text_document.uri, &params.text_document.text)
+        {
+            // let ranged_purls =
+            //     pom::parser::calculate_dependencies_with_range(&params.text_document.text);
 
-        self.document_store.insert(
-            &params.text_document.uri,
-            params.text_document.text,
-            ranged_purls,
-        );
+            self.document_store.insert(
+                &params.text_document.uri,
+                params.text_document.text,
+                ranged_purls,
+            );
 
-        let ranged_purls = self.document_store.get(&params.text_document.uri).unwrap();
+            let ranged_purls = self.document_store.get(&params.text_document.uri).unwrap();
 
-        let purls: Vec<Purl> = ranged_purls
-            .purls
-            .iter()
-            .map(|ranged| ranged.purl.clone())
-            .collect();
+            let purls: Vec<Purl> = ranged_purls
+                .purls
+                .iter()
+                .map(|ranged| ranged.purl.clone())
+                .collect();
 
-        if let Ok(vulnerabilities) = self.server.get_component_information(purls).await {
-            trace!("Vulnerabilities: {:?}", vulnerabilities);
+            if let Ok(vulnerabilities) = self.server.get_component_information(purls).await {
+                trace!("Vulnerabilities: {:?}", vulnerabilities);
 
-            let diagnostics: Vec<Diagnostic> =
-                diagnostics::calculate_diagnostics_for_vulnerabilities(
-                    ranged_purls.purls,
-                    vulnerabilities,
-                );
+                let diagnostics: Vec<Diagnostic> =
+                    diagnostics::calculate_diagnostics_for_vulnerabilities(
+                        ranged_purls.purls,
+                        vulnerabilities,
+                    );
 
-            trace!("Diagnostics: {:?}", diagnostics);
-            self.client
-                .publish_diagnostics(params.text_document.uri, diagnostics, None)
-                .await;
+                trace!("Diagnostics: {:?}", diagnostics);
+                self.client
+                    .publish_diagnostics(params.text_document.uri, diagnostics, None)
+                    .await;
+            }
         }
     }
 
@@ -224,8 +243,16 @@ impl LanguageServer for Backend {
                 }) => {
                     let line_position = params.text_document_position.position.line;
 
-                    if pom::parser::is_editing_version(&items.document, line_position as usize) {
-                        match pom::parser::get_purl(&items.document, line_position as usize) {
+                    if self.parser_manager.is_editing_version(
+                        &url,
+                        &items.document,
+                        line_position as usize,
+                    ) {
+                        match self.parser_manager.get_purl(
+                            &url,
+                            &items.document,
+                            line_position as usize,
+                        ) {
                             Some(purl) => {
                                 debug!("PURL: {:?}", purl);
                                 match self.server.get_versions_for_purl(purl).await {

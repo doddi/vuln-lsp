@@ -35,18 +35,22 @@ where
             .filter(|key| !self.map.contains_key(key))
             .collect();
 
-        trace!(
-            "{} to be fetched out of {}",
-            keys_to_request.len(),
-            keys.len()
-        );
-        let new_responses = get_components(keys_to_request).await?;
-        trace!("keys received and to be cached: {}", new_responses.len());
+        if keys_to_request.is_empty() {
+            trace!("all keys are cached");
+        } else {
+            trace!(
+                "{} to be fetched out of {}",
+                keys_to_request.len(),
+                keys.len()
+            );
+            let new_responses = get_components(keys_to_request).await?;
+            trace!("keys received and to be cached: {}", new_responses.len());
 
-        // Insert new responses into cache
-        new_responses.into_iter().for_each(|item| {
-            self.map.insert(determine_identifier(&item), item.clone());
-        });
+            // Insert new responses into cache
+            new_responses.into_iter().for_each(|item| {
+                self.map.insert(determine_identifier(&item), item.clone());
+            });
+        }
 
         trace!("{:?}", self.map);
         // Now just pull out the original requests because they should all be cached

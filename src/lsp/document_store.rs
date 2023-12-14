@@ -41,7 +41,7 @@ impl DocumentStore {
 
     pub fn get_purl_for_position(&self, url: &Url, line_number: usize) -> Option<Purl> {
         if let Some(items) = self.inner.lock().unwrap().get(url) {
-            debug!("Looking for line numver: {}", line_number);
+            debug!("Looking for line number: {}", line_number);
             debug!("Purl items: {:?}", items.purls);
             let purl_range = items
                 .purls

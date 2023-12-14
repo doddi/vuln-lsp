@@ -1,7 +1,33 @@
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
-use crate::server::purl::{self, Purl, PurlRange};
+use crate::{
+    parsers::Parser,
+    server::purl::{self, Purl, PurlRange},
+};
+
+pub(crate) struct PomParser;
+
+impl Parser for PomParser {
+    fn parse(&self, document: &str) -> Vec<PurlRange> {
+        trace!("Parsing pom.xml");
+        let dependencies = calculate_dependencies_with_range(document);
+        trace!("Found dependencies: {:?}", dependencies);
+        dependencies
+    }
+
+    fn can_parser(&self, url: &reqwest::Url) -> bool {
+        url.path().ends_with("pom.xml")
+    }
+
+    fn is_editing_version(&self, document: &str, line_position: usize) -> bool {
+        is_editing_version(document, line_position)
+    }
+
+    fn get_purl(&self, document: &str, line_position: usize) -> Option<Purl> {
+        get_purl(document, line_position)
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 struct Project {
@@ -17,17 +43,27 @@ struct Project {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
-pub struct Dependencies {
+struct Dependencies {
     pub dependency: Vec<Dependency>,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-pub struct Dependency {
+struct Dependency {
     #[serde(rename = "groupId")]
     pub group_id: String,
     #[serde(rename = "artifactId")]
     pub artifact_id: String,
     pub version: Option<String>,
+}
+
+impl From<Purl> for Dependency {
+    fn from(value: Purl) -> Self {
+        Dependency {
+            group_id: value.group_id,
+            artifact_id: value.artifact_id,
+            version: Some(value.version),
+        }
+    }
 }
 
 impl From<Dependency> for Purl {
@@ -42,7 +78,7 @@ impl From<Dependency> for Purl {
     }
 }
 
-pub fn is_editing_version(document: &str, line_position: usize) -> bool {
+fn is_editing_version(document: &str, line_position: usize) -> bool {
     let lines = document.lines().collect::<Vec<&str>>();
     let line = lines.get(line_position).unwrap();
 
@@ -53,7 +89,7 @@ pub fn is_editing_version(document: &str, line_position: usize) -> bool {
     line.contains("<version>") && line.contains("</version>")
 }
 
-pub fn get_purl(document: &str, line_position: usize) -> Option<Purl> {
+fn get_purl(document: &str, line_position: usize) -> Option<Purl> {
     let lines = document.lines().collect::<Vec<&str>>();
 
     let mut dep_start = 0;
@@ -85,7 +121,7 @@ pub fn get_purl(document: &str, line_position: usize) -> Option<Purl> {
     }
 }
 
-pub fn calculate_dependencies_with_range(document: &str) -> Vec<PurlRange> {
+fn calculate_dependencies_with_range(document: &str) -> Vec<PurlRange> {
     let lines = document.lines().collect::<Vec<&str>>();
 
     let mut dep_start = None;
