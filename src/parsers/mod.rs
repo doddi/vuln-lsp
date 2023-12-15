@@ -36,7 +36,7 @@ impl ParserManager {
                 return anyhow::Ok(parser.parse(document));
             }
         }
-        Err(anyhow!(VulnLspError::ParserNotFoundError(url.clone())))
+        Err(anyhow!(VulnLspError::ParserNotFound(url.clone())))
     }
 
     pub fn is_editing_version(&self, url: &Url, document: &str, line_position: usize) -> bool {

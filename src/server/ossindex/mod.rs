@@ -1,25 +1,20 @@
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use crate::VulnLspError;
 
+use super::{purl::Purl, Information, VulnerabilityServer, VulnerabilityVersionInfo};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::Url;
 use tracing::{debug, trace, warn};
 
-use crate::server;
-
-use super::{purl::Purl, Information, VulnerabilityServer, VulnerabilityVersionInfo};
-
 pub(crate) struct OssIndex {
     pub client: reqwest::Client,
-    cacher: Arc<Mutex<server::cacher::Cacher<Purl, VulnerabilityVersionInfo>>>,
 }
 
 impl OssIndex {
     pub fn new() -> Self {
         Self {
             client: reqwest::Client::new(),
-            cacher: Arc::new(Mutex::new(server::cacher::Cacher::new())),
         }
     }
 
@@ -76,13 +71,13 @@ impl OssIndex {
                     }
                     Err(err) => {
                         warn!("error parsing response from ossindex: {}", err);
-                        anyhow::Ok(vec![])
+                        Err(anyhow!(VulnLspError::ServerParse))
                     }
                 }
             }
             Err(err) => {
                 warn!("error sending request to ossindex: {}", err);
-                anyhow::Ok(vec![])
+                Err(anyhow!(VulnLspError::ServerRequest(request.into())))
             }
         }
     }

@@ -1,15 +1,15 @@
 #![allow(unused)]
-use core::panic;
-use std::sync::Arc;
-
+use anyhow::anyhow;
 use async_trait::async_trait;
+use core::panic;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, trace, warn};
 
 use super::{purl::Purl, Information, Severity, VulnerabilityServer, VulnerabilityVersionInfo};
-use crate::server;
+use crate::{server, VulnLspError};
 
 pub(crate) struct Sonatype {
     pub client: reqwest::Client,
@@ -75,15 +75,12 @@ impl Sonatype {
                 }
                 Err(err) => {
                     warn!("Component Details response error {}", err);
-                    panic!(
-                        "error parsing get component details response from sonatype: {}",
-                        err
-                    )
+                    Err(anyhow!(VulnLspError::ServerParse))
                 }
             },
             Err(err) => {
                 warn!("Component Details response error: {err}");
-                anyhow::Ok(vec![])
+                Err(anyhow!(VulnLspError::ServerRequest(url)))
             }
         }
     }
