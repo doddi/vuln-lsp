@@ -16,7 +16,7 @@ impl Parser for PomParser {
         dependencies
     }
 
-    fn can_parser(&self, url: &reqwest::Url) -> bool {
+    fn can_parse(&self, url: &reqwest::Url) -> bool {
         url.path().ends_with("pom.xml")
     }
 

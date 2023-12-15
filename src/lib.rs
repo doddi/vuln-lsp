@@ -1,7 +1,7 @@
 use lsp::document_store::{self, DocumentStore};
 use parsers::ParserManager;
 use reqwest::Url;
-use server::{VulnerabilityServer, VulnerableServerType};
+use server::{cacher::Cacher, VulnerabilityServer, VulnerabilityVersionInfo, VulnerableServerType};
 use thiserror::Error;
 use tokio::io::{stdin, stdout};
 use tower_lsp::{
@@ -52,6 +52,7 @@ struct Backend {
     document_store: DocumentStore,
     server: Box<dyn VulnerabilityServer>,
     parser_manager: parsers::ParserManager,
+    cacher: Cacher<Purl, VulnerabilityVersionInfo>,
 }
 
 impl Backend {
@@ -66,7 +67,15 @@ impl Backend {
             document_store,
             server,
             parser_manager,
+            cacher: Cacher::new(),
         }
+    }
+
+    fn cache_new_found_values(&self, vulnerabilities: &[VulnerabilityVersionInfo]) {
+        vulnerabilities.iter().for_each(|vulnerability| {
+            self.cacher
+                .put(vulnerability.purl.clone(), vulnerability.clone())
+        });
     }
 
     async fn generate_hover_content(&self, purl: Purl) -> lsp_types::HoverContents {
@@ -160,9 +169,6 @@ impl LanguageServer for Backend {
             .parser_manager
             .parse(&params.text_document.uri, &params.text_document.text)
         {
-            // let ranged_purls =
-            //     pom::parser::calculate_dependencies_with_range(&params.text_document.text);
-
             self.document_store.insert(
                 &params.text_document.uri,
                 params.text_document.text,
@@ -177,15 +183,22 @@ impl LanguageServer for Backend {
                 .map(|ranged| ranged.purl.clone())
                 .collect();
 
-            if let Ok(vulnerabilities) = self.server.get_component_information(purls).await {
-                trace!("Vulnerabilities: {:?}", vulnerabilities);
+            let not_found_keys = self.cacher.find_not_found_keys(&purls);
+
+            if let Ok(vulnerabilities) = self.server.get_component_information(not_found_keys).await
+            {
+                self.cache_new_found_values(&vulnerabilities);
+                trace!("New Vulnerabilities cached: {:?}", vulnerabilities);
+            }
+
+            if let Some(cached_entries) = self.cacher.get(&purls) {
+                let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
 
                 let diagnostics: Vec<Diagnostic> =
                     diagnostics::calculate_diagnostics_for_vulnerabilities(
                         ranged_purls.purls,
                         vulnerabilities,
                     );
-
                 trace!("Diagnostics: {:?}", diagnostics);
                 self.client
                     .publish_diagnostics(params.text_document.uri, diagnostics, None)

@@ -8,7 +8,7 @@ use crate::{
 use anyhow::anyhow;
 
 trait Parser: Send + Sync {
-    fn can_parser(&self, url: &Url) -> bool;
+    fn can_parse(&self, url: &Url) -> bool;
     fn parse(&self, document: &str) -> Vec<PurlRange>;
 
     fn is_editing_version(&self, document: &str, line_position: usize) -> bool;
@@ -32,7 +32,7 @@ impl ParserManager {
 
     pub fn parse(&self, url: &Url, document: &str) -> anyhow::Result<Vec<PurlRange>> {
         for parser in &self.parsers {
-            if parser.can_parser(url) {
+            if parser.can_parse(url) {
                 return anyhow::Ok(parser.parse(document));
             }
         }
@@ -41,7 +41,7 @@ impl ParserManager {
 
     pub fn is_editing_version(&self, url: &Url, document: &str, line_position: usize) -> bool {
         for parser in &self.parsers {
-            if parser.can_parser(url) {
+            if parser.can_parse(url) {
                 return parser.is_editing_version(document, line_position);
             }
         }
@@ -50,7 +50,7 @@ impl ParserManager {
 
     pub fn get_purl(&self, url: &Url, document: &str, line_position: usize) -> Option<Purl> {
         for parser in &self.parsers {
-            if parser.can_parser(url) {
+            if parser.can_parse(url) {
                 return parser.get_purl(document, line_position);
             }
         }

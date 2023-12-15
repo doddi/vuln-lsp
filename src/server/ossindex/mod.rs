@@ -201,14 +201,7 @@ impl VulnerabilityServer for OssIndex {
         &self,
         purls: Vec<Purl>,
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
-        let mut cacher = self.cacher.lock().await;
-        cacher
-            .fetch(
-                purls,
-                |purls| self.do_get_component_information(purls),
-                |x| x.purl.clone(),
-            )
-            .await
+        self.do_get_component_information(purls).await
     }
 
     async fn get_versions_for_purl(&self, purl: Purl) -> anyhow::Result<Vec<Purl>> {

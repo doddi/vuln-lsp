@@ -17,7 +17,7 @@ impl From<server::Severity> for Option<DiagnosticSeverity> {
 
 pub fn calculate_diagnostics_for_vulnerabilities(
     ranged_purls: Vec<PurlRange>,
-    vulnerabilities: Vec<VulnerabilityVersionInfo>,
+    vulnerabilities: Vec<&VulnerabilityVersionInfo>,
 ) -> Vec<Diagnostic> {
     trace!("Matching up purls: {:?}", ranged_purls);
     trace!("Against: {:?}", vulnerabilities);
