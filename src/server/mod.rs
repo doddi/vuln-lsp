@@ -8,11 +8,11 @@ pub(crate) mod ossindex;
 pub mod purl;
 pub(crate) mod sonatype;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum VulnerableServerType {
     Dummy,
     OssIndex,
-    Sonatype(String, String),
+    Sonatype { base_url: String },
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +46,13 @@ pub(crate) struct Information {
     pub severity: Severity,
     pub summary: String,
     pub detail: String,
+    pub license: Vec<License>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct License {
+    pub title: String,
+    pub description: String,
 }
 
 #[async_trait]

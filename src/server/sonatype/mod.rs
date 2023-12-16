@@ -22,8 +22,8 @@ pub(crate) struct Sonatype {
 }
 
 impl Sonatype {
-    pub async fn new(base_url: String, application: String) -> Self {
-        debug!("Sonatype server created, {base_url}, {application}");
+    pub async fn new(base_url: String) -> Self {
+        debug!("Sonatype server created, {base_url}");
 
         let username = "admin";
         let password = "admin123";
@@ -360,6 +360,7 @@ impl From<SecurityIssue> for Information {
             severity: Severity::from(value.severity),
             summary: value.threat_category,
             detail: value.url,
+            license: vec![],
         }
     }
 }

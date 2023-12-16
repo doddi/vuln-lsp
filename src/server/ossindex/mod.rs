@@ -140,6 +140,7 @@ impl From<ComponentReportVulnerability> for Information {
             severity: calculate_violation_level(value.cvss_score),
             summary: value.title,
             detail: value.description,
+            license: vec![],
         }
     }
 }

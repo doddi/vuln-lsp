@@ -30,6 +30,7 @@ impl VulnerabilityServer for Dummy {
                     summary: format!("Summary {index}").to_string(),
                     severity: random_severity(),
                     detail: format!("Detail {index}").to_string(),
+                    license: vec![],
                 }],
             })
             .collect();

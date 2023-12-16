@@ -1,22 +1,31 @@
 use std::{fs::File, sync::Mutex};
 
 use clap::Parser;
-use tracing::info;
+use tracing::{info, trace};
 use vuln_lsp::server;
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    #[clap(default_value = "dummy")]
-    server: String,
+    #[clap(short, long, default_value = "oss-index")]
+    server: ServerType,
 
+    /// The base url of a Nexus Lifecycle server, only used when using `Sonatype` server
     #[clap(short, long)]
     base_url: Option<String>,
-    #[clap(short, long)]
-    application: Option<String>,
 
     #[clap(short, long)]
     log_level: Option<LogLevel>,
+    #[clap(short = 'f', long, default_value = "/tmp/trace.log")]
+    log_file: String,
+}
+
+#[derive(Default, Clone, clap::ValueEnum, Debug)]
+enum ServerType {
+    Dummy,
+    #[default]
+    OssIndex,
+    Sonatype,
 }
 
 #[derive(Clone, clap::ValueEnum, Debug)]
@@ -32,8 +41,9 @@ enum LogLevel {
 async fn main() {
     let args = Args::parse();
 
+    trace!("Starting Vuln Lsp");
     if let Some(level) = args.log_level {
-        let log_file = File::create("/tmp/trace.log").expect("should create trace file");
+        let log_file = File::create(args.log_file).expect("should create trace file");
         tracing_subscriber::fmt()
             .with_env_filter(format!("vuln_lsp={level:?}"))
             .with_writer(Mutex::new(log_file))
@@ -45,18 +55,15 @@ async fn main() {
         );
     };
 
-    let server_type = match args.server.as_str() {
-        "dummy" => server::VulnerableServerType::Dummy,
-        "oss-index" => server::VulnerableServerType::OssIndex,
-        "sonatype" => match (args.base_url, args.application) {
-            (Some(base_url), Some(application)) => {
-                server::VulnerableServerType::Sonatype(base_url, application)
-            }
+    let server_type = match args.server {
+        ServerType::Dummy => server::VulnerableServerType::Dummy,
+        ServerType::OssIndex => server::VulnerableServerType::OssIndex,
+        ServerType::Sonatype => match args.base_url {
+            Some(base_url) => server::VulnerableServerType::Sonatype { base_url },
             _ => panic!(
                 "both base_url and application must be specified for the sonatype server type"
             ),
         },
-        _ => panic!("Unknown server specified"),
     };
     info!("Starting vuln-lsp connecting to: {:?}", server_type);
     vuln_lsp::start(server_type).await;
