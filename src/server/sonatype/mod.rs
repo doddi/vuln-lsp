@@ -16,7 +16,7 @@ pub(crate) struct Sonatype {
     cacher: Arc<Mutex<server::cacher::Cacher<Purl, VulnerabilityVersionInfo>>>,
 
     base_url: String,
-    // TODO Must do better
+    // TODO: Must do better
     username: &'static str,
     password: &'static str,
 }

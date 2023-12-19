@@ -201,7 +201,7 @@ impl VulnerabilityServer for OssIndex {
     }
 
     async fn get_versions_for_purl(&self, purl: Purl) -> anyhow::Result<Vec<Purl>> {
-        // TODO figure out how to get versions from ossindex
+        // TODO: figure out how to get versions from ossindex
         anyhow::Ok(vec![purl])
     }
 }

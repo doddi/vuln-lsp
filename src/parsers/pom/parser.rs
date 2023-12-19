@@ -141,7 +141,7 @@ fn calculate_dependencies_with_range(document: &str) -> Vec<PurlRange> {
 
         if let (Some(start), Some(end)) = (&dep_start, &dep_end) {
             trace!("Extracting dependency information");
-            // TODO Bad Bad Bad, need to iterate over a single time
+            // TODO: Bad Bad Bad, need to iterate over a single time
             let lines_for_extraction = document.lines().collect::<Vec<&str>>();
             let dependency_scope = lines_for_extraction
                 .into_iter()

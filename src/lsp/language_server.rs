@@ -137,7 +137,7 @@ impl LanguageServer for Backend {
     ) -> tower_lsp::jsonrpc::Result<InitializeResult> {
         info!("Initializing vuln-lsp");
 
-        // TODO Vulnerability servers such as OSSIndex do not support an API endpoint to fetch versions
+        // TODO: Vulnerability servers such as OSSIndex do not support an API endpoint to fetch versions
         // so we need to disable CompletionProvider
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
@@ -224,7 +224,7 @@ impl LanguageServer for Backend {
                                     Ok(response) => {
                                         Ok(Some(lsp::completion::build_initial_response(response)))
                                     }
-                                    // TODO Add better error handling
+                                    // TODO: Add better error handling
                                     Err(_) => Ok(None),
                                 }
                             }
@@ -238,7 +238,7 @@ impl LanguageServer for Backend {
             },
             None => {
                 warn!("Document not found");
-                // TODO Should probably send back an error as the document should always be known
+                // TODO: Should probably send back an error as the document should always be known
                 Ok(None)
             }
         }
