@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
 use crate::{
+    lsp::document_store::{Position, PurlRange, Range},
     parsers::Parser,
-    server::purl::{self, Purl, PurlRange},
+    server::purl::Purl,
 };
 
 pub(crate) struct PomParser;
@@ -130,10 +131,10 @@ fn calculate_dependencies_with_range(document: &str) -> Vec<PurlRange> {
     for (index, line) in lines.iter().enumerate() {
         if let Some(col) = line.find("<dependency>") {
             trace!("Found dependency start at {}", index);
-            dep_start = Some(purl::Position { row: index, col });
+            dep_start = Some(Position { row: index, col });
         } else if let Some(col) = line.find("</dependency>") {
             trace!("Found dependency end at {}", index);
-            dep_end = Some(purl::Position {
+            dep_end = Some(Position {
                 row: index,
                 col: col + "</dependency>".to_string().len(),
             });
@@ -152,12 +153,12 @@ fn calculate_dependencies_with_range(document: &str) -> Vec<PurlRange> {
             match serde_xml_rs::from_str::<Dependency>(dependency_scope.as_str()) {
                 Ok(dep) => {
                     trace!("Found dependency: {:?}", dep);
-                    let range = purl::Range::new(
-                        purl::Position {
+                    let range = Range::new(
+                        Position {
                             row: start.row,
                             col: start.col,
                         },
-                        purl::Position {
+                        Position {
                             row: end.row,
                             col: end.col,
                         },

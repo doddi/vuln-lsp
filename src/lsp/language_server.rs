@@ -275,7 +275,7 @@ impl LanguageServer for Backend {
             .get_purl_for_position(&uri, line_number as usize)
         {
             Some(purl) => tower_lsp::jsonrpc::Result::Ok(Some(lsp_types::Hover {
-                contents: self.generate_hover_content(purl).await,
+                contents: self.generate_hover_content(purl.clone()).await,
                 range: None,
             })),
             None => {

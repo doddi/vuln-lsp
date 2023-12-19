@@ -137,39 +137,6 @@ where
     Ok(package_type)
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct PurlRange {
-    pub purl: Purl,
-    pub range: Range,
-}
-
-impl PurlRange {
-    pub fn new(purl: Purl, range: Range) -> Self {
-        PurlRange { purl, range }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Range {
-    pub start: Position,
-    pub end: Position,
-}
-
-impl Range {
-    pub fn new(start: Position, end: Position) -> Self {
-        Range { start, end }
-    }
-    pub fn contains_position(&self, line_number: usize) -> bool {
-        line_number >= self.start.row && line_number <= self.end.row
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Position {
-    pub row: usize,
-    pub col: usize,
-}
-
 #[cfg(test)]
 mod test {
     use super::*;

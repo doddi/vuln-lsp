@@ -1,7 +1,9 @@
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 use tracing::trace;
 
-use crate::server::{self, purl::PurlRange, VulnerabilityVersionInfo};
+use crate::server::{self, VulnerabilityVersionInfo};
+
+use super::document_store::PurlRange;
 
 impl From<server::Severity> for Option<DiagnosticSeverity> {
     fn from(value: server::Severity) -> Self {

@@ -1,10 +1,7 @@
 mod pom;
 use reqwest::Url;
 
-use crate::{
-    server::purl::{Purl, PurlRange},
-    VulnLspError,
-};
+use crate::{lsp::document_store::PurlRange, server::purl::Purl, VulnLspError};
 use anyhow::anyhow;
 
 trait Parser: Send + Sync {
