@@ -8,7 +8,7 @@ use tracing::warn;
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Purl {
     pub package: String,
-    pub group_id: String,
+    pub group_id: Option<String>,
     pub artifact_id: String,
     pub version: String,
     pub purl_type: Option<String>,
@@ -16,11 +16,13 @@ pub struct Purl {
 
 impl Display for Purl {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let _ = write!(
-            f,
-            "pkg:{}/{}/{}@{}",
-            self.package, self.group_id, self.artifact_id, self.version
-        );
+        let _ = write!(f, "pkg:{}/", self.package);
+
+        if let Some(group) = &self.group_id {
+            let _ = write!(f, "{}/", group);
+        }
+
+        let _ = write!(f, "{}@{}", self.artifact_id, self.version);
 
         match &self.purl_type {
             Some(purl_type) => {
@@ -74,7 +76,7 @@ impl Visitor<'_> for PurlVisitor {
                 };
 
                 let artifact_id = parts[1];
-                (package_type, "", artifact_id)
+                (package_type, None, artifact_id)
             }
             3 => {
                 let package = parts[0];
@@ -85,7 +87,7 @@ impl Visitor<'_> for PurlVisitor {
 
                 let group_id = parts[1];
                 let artifact_id = parts[2];
-                (package_type, group_id, artifact_id)
+                (package_type, Some(group_id.to_string()), artifact_id)
             }
             _ => return Err(E::custom("invalid purl")),
         };
@@ -109,7 +111,7 @@ impl Visitor<'_> for PurlVisitor {
 
         Ok(Purl {
             package: package_type.to_string(),
-            group_id: group_id.to_string(),
+            group_id,
             artifact_id,
             version: version.to_string(),
             purl_type,
@@ -147,7 +149,7 @@ mod test {
         let purl: Purl = serde_json::from_str(purl).unwrap();
 
         assert_eq!(purl.package, "maven");
-        assert_eq!(purl.group_id, "org.apache.commons");
+        assert_eq!(purl.group_id.unwrap(), "org.apache.commons");
         assert_eq!(purl.artifact_id, "commons-lang3");
         assert_eq!(purl.version, "3.9");
     }
@@ -158,7 +160,7 @@ mod test {
         let purl: Purl = serde_json::from_str(purl).unwrap();
 
         assert_eq!(purl.package, "npm");
-        assert_eq!(purl.group_id, "");
+        assert_eq!(purl.group_id, None);
         assert_eq!(purl.artifact_id, "foobar");
         assert_eq!(purl.version, "12.3.1");
     }
@@ -169,7 +171,7 @@ mod test {
             serde_json::from_str("\"pkg:maven/org.apache.struts/struts-core@1.3.10\"").unwrap();
 
         assert_eq!(purl.package, "maven");
-        assert_eq!(purl.group_id, "org.apache.struts");
+        assert_eq!(purl.group_id.unwrap(), "org.apache.struts");
         assert_eq!(purl.artifact_id, "struts-core");
         assert_eq!(purl.version, "1.3.10");
     }

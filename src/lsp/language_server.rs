@@ -67,15 +67,12 @@ impl Backend {
             lsp_types::HoverContents::Markup(lsp_types::MarkupContent {
                 kind: lsp_types::MarkupKind::Markdown,
                 value: format!(
-                    r#"pkg:{}/{}/{}@{}
+                    r#"{}
                 Severity: {:?}
                 {}
                 {}
                 "#,
-                    component_info[0].purl.package,
-                    component_info[0].purl.group_id,
-                    component_info[0].purl.artifact_id,
-                    component_info[0].purl.version,
+                    component_info[0].purl,
                     vulnerability.severity,
                     vulnerability.summary,
                     vulnerability.detail,
@@ -89,10 +86,14 @@ impl Backend {
     }
 
     async fn update_diagnostics(&self, uri: &Url, document: &str) {
+        trace!("Updating diagnostics for {}", uri);
         if let Ok(ranged_purls) = self.parser_manager.parse(uri, document) {
+            trace!("Parsed purls: {:?}", ranged_purls);
+
             self.document_store
                 .insert(uri, document.to_owned(), ranged_purls);
 
+            trace!("Document store: {:?}", self.document_store);
             let ranged_purls = self.document_store.get(uri).unwrap();
 
             let purls: Vec<Purl> = ranged_purls
@@ -101,7 +102,9 @@ impl Backend {
                 .map(|ranged| ranged.purl.clone())
                 .collect();
 
+            trace!("Found {} RangedPurls", purls.len());
             let not_found_keys = self.cacher.find_not_found_keys(&purls);
+            trace!("{} purls are not currently cached", not_found_keys.len());
 
             if not_found_keys.is_empty() {
                 debug!("All requested purls found in cache");

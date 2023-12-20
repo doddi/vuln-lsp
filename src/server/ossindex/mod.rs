@@ -116,7 +116,7 @@ struct ComponentReportRequest {
 #[derive(Debug, Serialize, Deserialize)]
 struct ComponentReport {
     pub coordinates: Purl,
-    pub description: String,
+    pub description: Option<String>,
     pub reference: String,
     pub vulnerabilities: Vec<ComponentReportVulnerability>,
 }
@@ -214,7 +214,7 @@ mod test {
     fn single_purl_payload() {
         let purls = vec![Purl {
             package: "maven".to_string(),
-            group_id: "org.apache.commons".to_string(),
+            group_id: Some("org.apache.commons".to_string()),
             artifact_id: "commons-lang3".to_string(),
             version: "3.9".to_string(),
             purl_type: None,
@@ -248,14 +248,14 @@ mod test {
         let purls = vec![
             Purl {
                 package: "maven".to_string(),
-                group_id: "org.apache.commons".to_string(),
+                group_id: Some("org.apache.commons".to_string()),
                 artifact_id: "commons-lang3".to_string(),
                 version: "3.9".to_string(),
                 purl_type: None,
             },
             Purl {
                 package: "maven".to_string(),
-                group_id: "org.foo".to_string(),
+                group_id: Some("org.foo".to_string()),
                 artifact_id: "bar".to_string(),
                 version: "1.0.0".to_string(),
                 purl_type: None,
@@ -299,7 +299,7 @@ mod test {
             ]
         "#;
 
-        let response = serde_json::from_str::<Vec<ComponentReport>>(&response).unwrap();
+        let response = serde_json::from_str::<Vec<ComponentReport>>(response).unwrap();
 
         assert_eq!(response.len(), 1);
     }
@@ -382,12 +382,12 @@ mod test {
             ]
             "#;
 
-        let response = serde_json::from_str::<Vec<ComponentReport>>(&expected).unwrap();
+        let response = serde_json::from_str::<Vec<ComponentReport>>(expected).unwrap();
 
         let purl: Purl =
             serde_json::from_str("\"pkg:maven/org.apache.struts/struts-core@1.3.10\"").unwrap();
         assert_eq!(response[0].coordinates, purl);
-        assert_eq!(response[0].description, "test description");
+        assert_eq!(response[0].description.clone().unwrap(), "test description");
         assert_eq!(response[0].vulnerabilities.len(), 4);
 
         let vulnerabilities = &response[0].vulnerabilities;

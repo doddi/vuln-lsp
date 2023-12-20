@@ -10,11 +10,11 @@ use crate::{
 pub(crate) struct PomParser;
 
 impl Parser for PomParser {
-    fn parse(&self, document: &str) -> Vec<PurlRange> {
+    fn parse(&self, document: &str) -> anyhow::Result<Vec<PurlRange>> {
         trace!("Parsing pom.xml");
         let dependencies = calculate_dependencies_with_range(document);
         trace!("Found dependencies: {:?}", dependencies);
-        dependencies
+        Ok(dependencies)
     }
 
     fn can_parse(&self, url: &reqwest::Url) -> bool {
@@ -60,7 +60,7 @@ struct Dependency {
 impl From<Purl> for Dependency {
     fn from(value: Purl) -> Self {
         Dependency {
-            group_id: value.group_id,
+            group_id: value.group_id.unwrap(),
             artifact_id: value.artifact_id,
             version: Some(value.version),
         }
@@ -71,7 +71,7 @@ impl From<Dependency> for Purl {
     fn from(value: Dependency) -> Self {
         Purl {
             package: "maven".to_string(),
-            group_id: value.group_id,
+            group_id: Some(value.group_id),
             artifact_id: value.artifact_id,
             version: value.version.unwrap(),
             purl_type: Some("jar".to_string()),
@@ -247,7 +247,7 @@ mod test {
             </dependency>
             "#;
         let purl = get_purl(content, 3).unwrap();
-        assert_eq!(purl.group_id, "junit");
+        assert_eq!(purl.group_id.unwrap(), "junit");
         assert_eq!(purl.artifact_id, "junit");
         assert_eq!(purl.version, "4.8.2");
     }
@@ -271,7 +271,7 @@ mod test {
         <dependencies>
         "#;
         let purl = get_purl(content, 12).unwrap();
-        assert_eq!(purl.group_id, "com.foo");
+        assert_eq!(purl.group_id.unwrap(), "com.foo");
         assert_eq!(purl.artifact_id, "bar");
         assert_eq!(purl.version, "1.0.0");
     }
