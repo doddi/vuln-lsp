@@ -15,6 +15,9 @@ pub mod server;
 pub(crate) enum VulnLspError {
     #[error("Parser not found for {0}")]
     ParserNotFound(Url),
+    #[error("Error parsing {0}")]
+    ManifestParse(String),
+
     #[error("Error sending {0} request to backend")]
     ServerRequest(Url),
     #[error("Error parsing backend response")]

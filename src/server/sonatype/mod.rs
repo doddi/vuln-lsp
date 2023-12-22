@@ -399,7 +399,7 @@ mod test {
             ComponentVersionsRequest {
                 package_url: Purl {
                     package: "maven".to_owned(),
-                    group_id: "org.apache.commons".to_owned(),
+                    group_id: Some("org.apache.commons".to_owned()),
                     artifact_id: "commons".to_owned(),
                     version: "1.4.0".to_owned(),
                     purl_type: Some("jar".to_string()),
@@ -506,7 +506,7 @@ mod test {
                     inner: WrappedPurl {
                         package_url: Purl {
                             package: "maven".to_owned(),
-                            group_id: "org.apache.commons".to_owned(),
+                            group_id: Some("org.apache.commons".to_owned()),
                             artifact_id: "commons".to_owned(),
                             version: "1.4.0".to_owned(),
                             purl_type: Some("jar".to_string()),
@@ -664,7 +664,7 @@ mod test {
             actual.component_details[0].inner.component.package_url,
             Purl {
                 package: "maven".to_owned(),
-                group_id: "tomcat".to_owned(),
+                group_id: Some("tomcat".to_owned()),
                 artifact_id: "tomcat-util".to_owned(),
                 version: "5.5.23".to_owned(),
                 purl_type: Some("jar".to_string()),
@@ -675,15 +675,6 @@ mod test {
             "tomcat : tomcat-util : 5.5.23"
         );
         assert_eq!(actual.component_details[0].inner.match_state, "exact");
-        // assert_eq!(actual.component_details[0].inner.relative_popularity, 0);
-        // assert_eq!(
-        //     actual.component_details[0].inner.hygiene_rating,
-        //     "NOT_RATED"
-        // );
-        // assert_eq!(
-        //     actual.component_details[0].inner.integrity_rating,
-        //     "NOT_RATED"
-        // );
         assert_eq!(
             actual.component_details[0]
                 .inner

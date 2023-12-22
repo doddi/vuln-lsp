@@ -31,7 +31,7 @@ impl PurlRange {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct Range {
     pub start: Position,
     pub end: Position,
@@ -46,7 +46,7 @@ impl Range {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct Position {
     pub row: usize,
     pub col: usize,
