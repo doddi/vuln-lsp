@@ -1,4 +1,4 @@
-use std::{fs::File, sync::Mutex};
+use std::{fmt::Debug, fs::File, sync::Mutex};
 
 use clap::Parser;
 use tracing::{info, trace};

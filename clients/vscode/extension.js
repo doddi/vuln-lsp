@@ -5,6 +5,9 @@ const tmpdir = require("os").tmpdir();
 module.exports = {
   /** @param {import("vscode").ExtensionContext} context*/
   activate(context) {
+
+    console.log("testing......")
+    
     /** @type {import("vscode-languageclient/node").ServerOptions} */
     const serverOptions = {
       run: {
@@ -13,7 +16,8 @@ module.exports = {
       debug: {
         command: "vuln-lsp",
         // args: ["dummy", "--log-level=trace"],
-        args: ["oss-index", "--log-level=trace"],
+        // args: ["-s", "oss-index", "--log-level=trace"],
+        args: ["-s", "oss-index"],
       },
     };
 

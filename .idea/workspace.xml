@@ -8,7 +8,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0fb9973-1354-41aa-acb8-f70f70d8beed" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/src/server/sonatype/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/server/sonatype/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/clients/vscode/extension.js" beforeDir="false" afterPath="$PROJECT_DIR$/clients/vscode/extension.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parsers/cargo/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parsers/cargo/mod.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -37,6 +40,9 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Cargo.Test metadata::test.executor": "Run",
+    "Cargo.Test parsers::cargo::metadata::test::can_parse_metadata.executor": "Run",
+    "Cargo.Test parsers::cargo::metadata::test::can_process_metadata.executor": "Debug",
     "Cargo.Test server::ossindex::test::can_deserialize_with_vulnerabilities.executor": "Debug",
     "Cargo.Test server::purl::test::can_deserialize.executor": "Debug",
     "Cargo.Test server::purl::test::can_deserialize_npm.executor": "Run",
@@ -44,8 +50,9 @@
     "RunOnceActivity.CodyProjectSettingsMigration": "true",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "lifecycle",
-    "last_opened_file_path": "/home/mdodgson/work/personal/java/test",
+    "git-widget-placeholder": "main",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/markdodgson/work/personal/code/rust/vuln-lsp",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -55,7 +62,14 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="Cargo.Test server::ossindex::test::can_deserialize_with_vulnerabilities">
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/resources/cargo" />
+      <recent name="$PROJECT_DIR$/resources" />
+      <recent name="$PROJECT_DIR$/src/parsers/cargo" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Cargo.Test parsers::cargo::metadata::test::can_process_metadata">
     <configuration name="Run vuln-lsp" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="command" value="run --package vuln-lsp --bin vuln-lsp" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -73,42 +87,59 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration name="Test metadata::test" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package vuln-lsp --lib parsers::cargo::metadata::test" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <envs />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test parsers::cargo::metadata::test::can_parse_metadata" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package vuln-lsp --lib parsers::cargo::metadata::test::can_parse_metadata -- --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <envs />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test parsers::cargo::metadata::test::can_process_metadata" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package vuln-lsp --lib parsers::cargo::metadata::test::can_process_metadata -- --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <envs />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Test server::ossindex::test::can_deserialize_with_vulnerabilities" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="command" value="test --package vuln-lsp --lib server::ossindex::test::can_deserialize_with_vulnerabilities -- --exact" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <envs />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test server::purl::test::can_deserialize" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package vuln-lsp --lib server::purl::test::can_deserialize -- --exact" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <envs />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="Test server::purl::test::can_deserialize_npm" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package vuln-lsp --lib server::purl::test::can_deserialize_npm -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
@@ -163,17 +194,24 @@
     <list>
       <item itemvalue="Cargo.Run vuln-lsp" />
       <item itemvalue="Cargo.Test vuln-lsp" />
+      <item itemvalue="Cargo.Test metadata::test" />
+      <item itemvalue="Cargo.Test parsers::cargo::metadata::test::can_process_metadata" />
+      <item itemvalue="Cargo.Test parsers::cargo::metadata::test::can_parse_metadata" />
       <item itemvalue="Cargo.Test server::ossindex::test::can_deserialize_with_vulnerabilities" />
-      <item itemvalue="Cargo.Test server::purl::test::can_deserialize" />
-      <item itemvalue="Cargo.Test server::purl::test::can_deserialize_npm" />
       <item itemvalue="Cargo.Test server::purl::test::can_deserialize_struts" />
+      <item itemvalue="Gradle.Run IDE for UI Tests" />
+      <item itemvalue="Gradle.Run Plugin" />
+      <item itemvalue="Gradle.Run Qodana" />
+      <item itemvalue="Gradle.Run Tests" />
+      <item itemvalue="Gradle.Run Verifications" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Test parsers::cargo::metadata::test::can_process_metadata" />
+        <item itemvalue="Cargo.Test metadata::test" />
+        <item itemvalue="Cargo.Test parsers::cargo::metadata::test::can_parse_metadata" />
         <item itemvalue="Cargo.Test server::ossindex::test::can_deserialize_with_vulnerabilities" />
         <item itemvalue="Cargo.Test server::purl::test::can_deserialize_struts" />
-        <item itemvalue="Cargo.Test server::purl::test::can_deserialize_npm" />
-        <item itemvalue="Cargo.Test server::purl::test::can_deserialize" />
       </list>
     </recent_temporary>
   </component>
@@ -195,10 +233,25 @@
       <workItem from="1701535059985" duration="3227000" />
       <workItem from="1701539183754" duration="18000" />
       <workItem from="1701856805340" duration="377000" />
+      <workItem from="1710428037148" duration="25000" />
+      <workItem from="1710428089316" duration="8339000" />
+      <workItem from="1713975387862" duration="345000" />
+      <workItem from="1713975739889" duration="950000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/src/parsers/cargo/metadata.rs</url>
+          <line>63</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>
