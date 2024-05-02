@@ -16,10 +16,13 @@ pub struct DocumentStore {
 #[derive(Debug, Clone)]
 pub struct StorageItems {
     pub document: String,
-    pub purls: Vec<PurlRange>,
+    pub dependencies: MetadataDependencies,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+pub type BuildDependencies = HashMap<Purl, Vec<Purl>>;
+pub type MetadataDependencies = HashMap<PurlRange, Vec<Purl>>;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct PurlRange {
     pub purl: Purl,
     pub range: Range,
@@ -31,7 +34,7 @@ impl PurlRange {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Eq, Hash)]
 pub(crate) struct Range {
     pub start: Position,
     pub end: Position,
@@ -46,7 +49,7 @@ impl Range {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Eq, Hash)]
 pub(crate) struct Position {
     pub row: usize,
     pub col: usize,
@@ -59,10 +62,10 @@ impl DocumentStore {
         }
     }
 
-    pub fn insert(&self, url: &Url, content: String, purls: Vec<PurlRange>) {
+    pub fn insert(&self, url: &Url, content: String, purls: MetadataDependencies) {
         let item = StorageItems {
             document: content,
-            purls,
+            dependencies: purls,
         };
 
         self.inner.lock().unwrap().insert(url.clone(), item);
@@ -75,13 +78,13 @@ impl DocumentStore {
     pub fn get_purl_for_position(&self, url: &Url, line_number: usize) -> Option<Purl> {
         if let Some(items) = self.inner.lock().unwrap().get(url) {
             debug!("Looking for line number: {}", line_number);
-            debug!("Purl items: {:?}", items.purls);
+            debug!("Purl items: {:?}", items);
             let purl_range = items
-                .purls
+                .dependencies
                 .iter()
-                .find(|purl| purl.range.contains_position(line_number));
+                .find(|item| item.0.range.contains_position(line_number));
 
-            return purl_range.map(|purl_range| purl_range.purl.clone());
+            return purl_range.map(|purl_range| purl_range.0.purl.clone());
         }
         None
     }

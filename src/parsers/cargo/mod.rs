@@ -1,11 +1,9 @@
 mod metadata;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 
 use crate::{
-    lsp::document_store::{Position, PurlRange, Range},
-    server::purl::Purl,
-    VulnLspError,
+    lsp::document_store::{MetadataDependencies, Position, PurlRange, Range}, parsers::cargo::metadata::metadata_command, server::purl::Purl, VulnLspError
 };
 use anyhow::anyhow;
 use cargo_toml::Manifest;
@@ -20,7 +18,7 @@ impl Parser for CargoParser {
         url.path().ends_with("Cargo.toml")
     }
 
-    fn parse(&self, document: &str) -> anyhow::Result<Vec<PurlRange>> {
+    fn parse(&self, document: &str) -> anyhow::Result<MetadataDependencies> {
         debug!("Parsing Cargo.toml");
 
         match parse_cargo_doc_for_ranges(document) {
@@ -47,7 +45,24 @@ impl Parser for CargoParser {
                     }
                 };
                 trace!("Found {} purl ranges", parsed.len());
-                Ok(parsed)
+
+                let mut result: MetadataDependencies = MetadataDependencies::new();
+                match metadata_command() {
+                    Ok(cmd_result) => {
+                        for ele in parsed {
+                            if let Some(purls) = cmd_result.get(&ele.purl) {
+                                result.insert(ele, [vec![ele.purl], purls.to_vec()].concat());
+                            }
+                        }
+                    },
+                    Err(_) => {
+                        for ele in parsed {
+                            result.insert(ele, vec![]);
+                        }
+                    },
+                }
+
+                Ok(result)
             }
             Err(_err) => {
                 trace!("Failed to parse Cargo.toml");
@@ -66,10 +81,11 @@ impl Parser for CargoParser {
         match self.parse(document) {
             Ok(purls_ranges) => purls_ranges
                 .into_iter()
-                .find(|range| {
+                .find(|item| {
+                    let range = item.0;
                     range.range.start.row <= line_position && range.range.end.row >= line_position
                 })
-                .map(|range| range.purl),
+                .map(|item| item.0.purl),
             Err(_err) => None,
         }
     }
@@ -251,12 +267,12 @@ mod test {
         assert_eq!(parsed.len(), 16);
         let tower = parsed
             .iter()
-            .find(|item| item.purl.artifact_id == "tower-lsp");
+            .find(|item| item.0.purl.artifact_id == "tower-lsp");
         assert!(tower.is_some());
-        assert_eq!(tower.unwrap().purl.version, "0.20.0");
-        assert_eq!(tower.unwrap().range.start.row, 13);
-        assert_eq!(tower.unwrap().range.start.col, 12);
-        assert_eq!(tower.unwrap().range.end.row, 13);
-        assert_eq!(tower.unwrap().range.end.col, 71);
+        assert_eq!(tower.unwrap().0.purl.version, "0.20.0");
+        assert_eq!(tower.unwrap().0.range.start.row, 13);
+        assert_eq!(tower.unwrap().0.range.start.col, 12);
+        assert_eq!(tower.unwrap().0.range.end.row, 13);
+        assert_eq!(tower.unwrap().0.range.end.col, 71);
     }
 }

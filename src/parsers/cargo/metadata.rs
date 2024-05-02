@@ -1,22 +1,11 @@
 use anyhow::anyhow;
 use serde::Deserialize;
-use std::borrow::Borrow;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::process::Command;
 
-use crate::lsp::document_store::{Position, Range};
-use crate::{lsp::document_store::PurlRange, server::purl::Purl};
+use crate::server::purl::Purl;
+use crate::lsp::document_store::BuildDependencies;
 
-#[derive(Debug)]
-struct MetadataDependencies {
-    dependencies: HashMap<Purl, MetadataDependency>,
-}
-
-#[derive(Debug)]
-struct MetadataDependency {
-    direct_dependency: PurlRange,
-    dependencies: Vec<Purl>,
-}
 
 #[derive(Debug, Deserialize)]
 struct Metadata {
@@ -61,7 +50,7 @@ struct Dependency {
     name: String,
 }
 
-fn metadata_command(purls: Vec<PurlRange>) -> anyhow::Result<MetadataDependencies> {
+pub fn metadata_command() -> anyhow::Result<BuildDependencies> {
     let output = Command::new("cargo")
         .args(["metadata"])
         .output()
@@ -71,7 +60,7 @@ fn metadata_command(purls: Vec<PurlRange>) -> anyhow::Result<MetadataDependencie
 
     let display = String::from_utf8(output.stdout).unwrap();
     match metadata_parse(display.as_str()) {
-        Ok(metadata) => metadata_process(purls, metadata),
+        Ok(metadata) => metadata_process(metadata),
         Err(e) => Err(anyhow!("Parse error {e}"))
     }
 }
@@ -86,9 +75,8 @@ fn metadata_parse(data: &str) -> anyhow::Result<Metadata> {
 }
 
 fn metadata_process(
-    purls: Vec<PurlRange>,
     metadata: Metadata,
-) -> anyhow::Result<MetadataDependencies> {
+) -> anyhow::Result<BuildDependencies> {
     let root_id = metadata.resolve.root;
 
     let node_map: BTreeMap<String, Node> = metadata.resolve.nodes.into_iter().map(|node| (node.id.clone(), node)).collect();
@@ -110,36 +98,20 @@ fn metadata_process(
     // At this point we have all the projects direct dependencies collated list of child dependecies
     let package_map: BTreeMap<String, Package> = metadata.packages.into_iter().map(|package| (package.id.clone(), package)).collect();
 
-    let mut dependencies = HashMap::new();
+    let mut build_dependencies: BuildDependencies = HashMap::new();
+
     dep_collection.iter().for_each(|dep| {
         let package_purl: Purl = package_map.get(dep.0)
             .expect("unable to find package from id").into();
 
-        // Does the purl exist in the already parsed dependecies provided?
-        let exists = purls.iter().find(|item| item.purl.eq(&package_purl));
+        let children: Vec<Purl> = dep.1.iter().map(|ele| {
+            package_map.get(ele).expect("child not found").into()
+        }).collect();
 
-        match exists {
-            Some(purl_range) => {
-                let children: Vec<Purl> = dep.1.iter().map(|ele| {
-                    package_map.get(ele).expect("child not found").into()
-                }).collect();
-
-                let meta = MetadataDependency {
-                    direct_dependency: purl_range.clone(),
-                    dependencies: children,
-                };
-
-                dependencies.insert(package_purl, meta);
-            },
-            None => println!("Provided PurlRange missing"),
-        }
+        build_dependencies.insert(package_purl, children);
     });
 
-    let result = MetadataDependencies {
-        dependencies,
-    };
-
-    Ok(result)
+    Ok(build_dependencies)
 }
 
 fn add_dependencies(node_map: &BTreeMap<String, Node>, collection: &mut Vec<String>, dep: &String) {
@@ -173,50 +145,50 @@ mod test {
 
     #[test]
     fn can_process_metadata() {
-        let purls: Vec<PurlRange> = vec![
-            PurlRange {
-                purl: Purl {
-                    package: "cargo".to_string(),
-                    group_id: Option::None,
-                    artifact_id: "anyhow".to_string(),
-                    version: "0.1.74".to_string(),
-                    purl_type: Option::None,
-                },
-                range: Range {
-                    start: Position { row: 0, col: 0 },
-                    end: Position { row: 1, col: 10 },
-                },
-            },
-            PurlRange {
-                purl: Purl {
-                    package: "cargo".to_string(),
-                    group_id: Option::None,
-                    artifact_id: "clap".to_string(),
-                    version: "4.4.11".to_string(),
-                    purl_type: Option::None,
-                },
-                range: Range {
-                    start: Position { row: 0, col: 0 },
-                    end: Position { row: 1, col: 10 },
-                },
-            },
-            PurlRange {
-                purl: Purl {
-                    package: "cargo".to_string(),
-                    group_id: Option::None,
-                    artifact_id: "reqwest".to_string(),
-                    version: "0.11.22".to_string(),
-                    purl_type: Option::None,
-                },
-                range: Range {
-                    start: Position { row: 0, col: 0 },
-                    end: Position { row: 1, col: 10 },
-                },
-            },
-        ];
+        // let purls: Vec<PurlRange> = vec![
+        //     PurlRange {
+        //         purl: Purl {
+        //             package: "cargo".to_string(),
+        //             group_id: Option::None,
+        //             artifact_id: "anyhow".to_string(),
+        //             version: "0.1.74".to_string(),
+        //             purl_type: Option::None,
+        //         },
+        //         range: Range {
+        //             start: Position { row: 0, col: 0 },
+        //             end: Position { row: 1, col: 10 },
+        //         },
+        //     },
+        //     PurlRange {
+        //         purl: Purl {
+        //             package: "cargo".to_string(),
+        //             group_id: Option::None,
+        //             artifact_id: "clap".to_string(),
+        //             version: "4.4.11".to_string(),
+        //             purl_type: Option::None,
+        //         },
+        //         range: Range {
+        //             start: Position { row: 0, col: 0 },
+        //             end: Position { row: 1, col: 10 },
+        //         },
+        //     },
+        //     PurlRange {
+        //         purl: Purl {
+        //             package: "cargo".to_string(),
+        //             group_id: Option::None,
+        //             artifact_id: "reqwest".to_string(),
+        //             version: "0.11.22".to_string(),
+        //             purl_type: Option::None,
+        //         },
+        //         range: Range {
+        //             start: Position { row: 0, col: 0 },
+        //             end: Position { row: 1, col: 10 },
+        //         },
+        //     },
+        // ];
         let data = include_str!("../../../resources/cargo/output.json");
         let metadata = metadata_parse(data).unwrap();
 
-        let dependencies = metadata_process(purls, metadata).unwrap();
+        let dependencies = metadata_process(metadata).unwrap();
     }
 }

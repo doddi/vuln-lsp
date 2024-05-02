@@ -3,12 +3,12 @@ mod pom;
 use reqwest::Url;
 use tracing::debug;
 
-use crate::{lsp::document_store::PurlRange, server::purl::Purl, VulnLspError};
+use crate::{lsp::document_store::{MetadataDependencies, PurlRange}, server::purl::Purl, VulnLspError};
 use anyhow::anyhow;
 
 trait Parser: Send + Sync {
     fn can_parse(&self, url: &Url) -> bool;
-    fn parse(&self, document: &str) -> anyhow::Result<Vec<PurlRange>>;
+    fn parse(&self, document: &str) -> anyhow::Result<MetadataDependencies>;
 
     fn is_editing_version(&self, document: &str, line_position: usize) -> bool;
     fn get_purl(&self, document: &str, line_position: usize) -> Option<Purl>;
@@ -33,7 +33,7 @@ impl ParserManager {
         Self { parsers }
     }
 
-    pub fn parse(&self, url: &Url, document: &str) -> anyhow::Result<Vec<PurlRange>> {
+    pub fn parse(&self, url: &Url, document: &str) -> anyhow::Result<MetadataDependencies> {
         for parser in &self.parsers {
             if parser.can_parse(url) {
                 return parser.parse(document);

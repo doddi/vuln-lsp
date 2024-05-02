@@ -87,22 +87,23 @@ impl Backend {
 
     async fn update_diagnostics(&self, uri: &Url, document: &str) {
         trace!("Updating diagnostics for {}", uri);
-        if let Ok(ranged_purls) = self.parser_manager.parse(uri, document) {
-            trace!("Parsed purls: {:?}", ranged_purls);
+        if let Ok(metadata_dependencies) = self.parser_manager.parse(uri, document) {
+            trace!("Parsed purls: {:?}", metadata_dependencies);
 
             self.document_store
-                .insert(uri, document.to_owned(), ranged_purls);
+                .insert(uri, document.to_owned(), metadata_dependencies);
 
             trace!("Document store: {:?}", self.document_store);
-            let ranged_purls = self.document_store.get(uri).unwrap();
+            let stored_items = self.document_store.get(uri).unwrap();
 
-            let purls: Vec<Purl> = ranged_purls
-                .purls
-                .iter()
-                .map(|ranged| ranged.purl.clone())
-                .collect();
+            trace!("Found {} RangedPurls", stored_items.dependencies.len());
 
-            trace!("Found {} RangedPurls", purls.len());
+            // Get all the purls for the project in a single vec
+            let purls: Vec<Purl> = vec![];
+            for ele in stored_items.dependencies {
+                purls.append(&ele.1)
+            }
+
             let not_found_keys = self.cacher.find_not_found_keys(&purls);
             trace!("{} purls are not currently cached", not_found_keys.len());
 
@@ -120,7 +121,7 @@ impl Backend {
 
                 let diagnostics: Vec<Diagnostic> =
                     diagnostics::calculate_diagnostics_for_vulnerabilities(
-                        ranged_purls.purls,
+                        &stored_items.dependencies,
                         vulnerabilities,
                     );
                 trace!("Diagnostics: {:?}", diagnostics);

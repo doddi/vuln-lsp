@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 use tracing::trace;
 
 use crate::server::{self, VulnerabilityVersionInfo};
 
-use super::document_store::PurlRange;
+use super::document_store::{MetadataDependencies, PurlRange};
 
 impl From<server::Severity> for Option<DiagnosticSeverity> {
     fn from(value: server::Severity) -> Self {
@@ -18,49 +20,71 @@ impl From<server::Severity> for Option<DiagnosticSeverity> {
 }
 
 pub fn calculate_diagnostics_for_vulnerabilities(
-    ranged_purls: Vec<PurlRange>,
+    dependencies: &MetadataDependencies,
     vulnerabilities: Vec<&VulnerabilityVersionInfo>,
 ) -> Vec<Diagnostic> {
-    trace!("Matching up purls: {:?}", ranged_purls);
+    trace!("Matching up purls: {:?}", dependencies);
     trace!("Against: {:?}", vulnerabilities);
 
-    let mut diagnostics = Vec::new();
+    let vulns: HashMap<PurlRange, Vec<&VulnerabilityVersionInfo>> = HashMap::new();
     for possible_vulnerability_match in vulnerabilities {
-        for ranged_purl in &ranged_purls {
-            if ranged_purl.purl.version == possible_vulnerability_match.purl.version
-                && ranged_purl.purl.group_id == possible_vulnerability_match.purl.group_id
-                && ranged_purl.purl.artifact_id == possible_vulnerability_match.purl.artifact_id
-            {
-                let vulnerabilities_for_purl = &possible_vulnerability_match.vulnerabilities;
-                if let Some(highest_vulnerability) =
-                    find_highest_severity_vulnerability(vulnerabilities_for_purl)
+        dependencies.iter().for_each(|item| {
+            if item.1.iter().any(|purl| {
+                if purl.version == possible_vulnerability_match.purl.version
+                    && purl.group_id == possible_vulnerability_match.purl.group_id
+                    && purl.artifact_id == possible_vulnerability_match.purl.artifact_id
                 {
-                    let diagnostic = Diagnostic {
-                        range: tower_lsp::lsp_types::Range {
-                            start: tower_lsp::lsp_types::Position {
-                                line: ranged_purl.range.start.row as u32,
-                                character: ranged_purl.range.start.col as u32,
-                            },
-                            end: tower_lsp::lsp_types::Position {
-                                line: ranged_purl.range.end.row as u32,
-                                character: ranged_purl.range.end.col as u32,
-                            },
-                        },
-                        severity: highest_vulnerability.severity.clone().into(),
-                        code: None,
-                        code_description: None,
-                        source: Some("vulnerability".to_string()),
-                        message: highest_vulnerability.summary.clone(),
-                        related_information: None,
-                        tags: None,
-                        data: None,
-                    };
-                    diagnostics.push(diagnostic);
+                    return true;
                 }
+                else {
+                    return false;
+                }
+            }) {
+                // This vulnerability is brought in by this dependency
+                if !vulns.contains_key(&item.0) {
+                    vulns.insert(item.0.clone(), vec![]);    
+                }
+                let vulns_list = vulns.get(&item.0).expect("should always have an entry");
+                vulns_list.push(possible_vulnerability_match)
             }
-        }
+        });
     }
+
+
+    let diagnostics = vulns.into_iter()
+        .map(|vuln| {
+            let highest_vulnerability = find_highest_severity_vulnerability_from_all(vuln.1).expect("at this point there should always be a vulnerability for the purl");
+            Diagnostic {
+                range: tower_lsp::lsp_types::Range {
+                    start: tower_lsp::lsp_types::Position {
+                        line: vuln.0.range.start.row as u32,
+                        character: vuln.0.range.start.col as u32,
+                    },
+                    end: tower_lsp::lsp_types::Position {
+                        line: vuln.0.range.end.row as u32,
+                        character: vuln.0.range.end.col as u32,
+                    },
+                },
+                severity: highest_vulnerability.severity.clone().into(),
+                code: None,
+                code_description: None,
+                source: Some("vulnerability".to_string()),
+                message: highest_vulnerability.summary.clone(),
+                related_information: None,
+                tags: None,
+                data: None,
+            }
+        }).collect();
     diagnostics
+}
+
+fn find_highest_severity_vulnerability_from_all(
+    vulnerabilities: Vec<&VulnerabilityVersionInfo>
+) -> Option<&server::Information> {
+    let highest = vulnerabilities.into_iter()
+        .map(|vulnerability_info| find_highest_severity_vulnerability(&vulnerability_info.vulnerabilities).expect("always at least one vulnerability present"))
+        .collect();
+    find_highest_severity_vulnerability(highest)
 }
 
 fn find_highest_severity_vulnerability(
