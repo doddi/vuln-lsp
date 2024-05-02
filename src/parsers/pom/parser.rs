@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
 use crate::{
-    lsp::document_store::{Position, PurlRange, Range},
+    lsp::document_store::{MetadataDependencies, Position, PurlRange, Range},
     parsers::Parser,
     server::purl::Purl,
 };
@@ -10,11 +10,15 @@ use crate::{
 pub(crate) struct PomParser;
 
 impl Parser for PomParser {
-    fn parse(&self, document: &str) -> anyhow::Result<Vec<PurlRange>> {
+    fn parse(&self, document: &str) -> anyhow::Result<MetadataDependencies> {
         trace!("Parsing pom.xml");
         let dependencies = calculate_dependencies_with_range(document);
         trace!("Found dependencies: {:?}", dependencies);
-        Ok(dependencies)
+        let mut metadata = MetadataDependencies::new();
+        dependencies.into_iter().for_each(|dep| {
+            metadata.insert(dep, vec![]);
+        });
+        Ok(metadata)
     }
 
     fn can_parse(&self, url: &reqwest::Url) -> bool {

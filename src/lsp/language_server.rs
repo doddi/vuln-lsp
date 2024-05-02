@@ -99,9 +99,9 @@ impl Backend {
             trace!("Found {} RangedPurls", stored_items.dependencies.len());
 
             // Get all the purls for the project in a single vec
-            let purls: Vec<Purl> = vec![];
-            for ele in stored_items.dependencies {
-                purls.append(&ele.1)
+            let mut purls: Vec<Purl> = vec![];
+            for ele in &stored_items.dependencies {
+                purls.extend(ele.1.clone());
             }
 
             let not_found_keys = self.cacher.find_not_found_keys(&purls);
@@ -121,7 +121,7 @@ impl Backend {
 
                 let diagnostics: Vec<Diagnostic> =
                     diagnostics::calculate_diagnostics_for_vulnerabilities(
-                        &stored_items.dependencies,
+                        &stored_items,
                         vulnerabilities,
                     );
                 trace!("Diagnostics: {:?}", diagnostics);

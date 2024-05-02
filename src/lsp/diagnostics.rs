@@ -5,7 +5,7 @@ use tracing::trace;
 
 use crate::server::{self, VulnerabilityVersionInfo};
 
-use super::document_store::{MetadataDependencies, PurlRange};
+use super::document_store::{MetadataDependencies, PurlRange, StorageItems};
 
 impl From<server::Severity> for Option<DiagnosticSeverity> {
     fn from(value: server::Severity) -> Self {
@@ -20,31 +20,21 @@ impl From<server::Severity> for Option<DiagnosticSeverity> {
 }
 
 pub fn calculate_diagnostics_for_vulnerabilities(
-    dependencies: &MetadataDependencies,
+    storage_items: &StorageItems,
     vulnerabilities: Vec<&VulnerabilityVersionInfo>,
 ) -> Vec<Diagnostic> {
-    trace!("Matching up purls: {:?}", dependencies);
+    trace!("Matching up purls: {:?}", storage_items);
     trace!("Against: {:?}", vulnerabilities);
 
-    let vulns: HashMap<PurlRange, Vec<&VulnerabilityVersionInfo>> = HashMap::new();
+    let mut vulns: HashMap<PurlRange, Vec<&VulnerabilityVersionInfo>> = HashMap::new();
     for possible_vulnerability_match in vulnerabilities {
-        dependencies.iter().for_each(|item| {
-            if item.1.iter().any(|purl| {
-                if purl.version == possible_vulnerability_match.purl.version
-                    && purl.group_id == possible_vulnerability_match.purl.group_id
-                    && purl.artifact_id == possible_vulnerability_match.purl.artifact_id
-                {
-                    return true;
-                }
-                else {
-                    return false;
-                }
-            }) {
+        storage_items.dependencies.iter().for_each(|item| {
+            if item.1.iter().any(|purl| purls_matches(purl, possible_vulnerability_match)) {
                 // This vulnerability is brought in by this dependency
                 if !vulns.contains_key(&item.0) {
                     vulns.insert(item.0.clone(), vec![]);    
                 }
-                let vulns_list = vulns.get(&item.0).expect("should always have an entry");
+                let vulns_list = vulns.get_mut(&item.0).expect("should always have an entry");
                 vulns_list.push(possible_vulnerability_match)
             }
         });
@@ -53,7 +43,10 @@ pub fn calculate_diagnostics_for_vulnerabilities(
 
     let diagnostics = vulns.into_iter()
         .map(|vuln| {
-            let highest_vulnerability = find_highest_severity_vulnerability_from_all(vuln.1).expect("at this point there should always be a vulnerability for the purl");
+            let highest_vulnerability = find_highest_severity_vulnerability_from_all(vuln.1.iter()
+                .map(|&v| v.clone())
+                .collect())
+                .expect("at this point there should always be a vulnerability for the purl");
             Diagnostic {
                 range: tower_lsp::lsp_types::Range {
                     start: tower_lsp::lsp_types::Position {
@@ -78,19 +71,32 @@ pub fn calculate_diagnostics_for_vulnerabilities(
     diagnostics
 }
 
+fn purls_matches(purl: &server::purl::Purl, possible_vulnerability_match: &VulnerabilityVersionInfo) -> bool {
+    match purl.version == possible_vulnerability_match.purl.version
+                        && purl.group_id == possible_vulnerability_match.purl.group_id
+                        && purl.artifact_id == possible_vulnerability_match.purl.artifact_id {
+        true => return true,
+        false => return false,
+    }
+}
+
 fn find_highest_severity_vulnerability_from_all(
-    vulnerabilities: Vec<&VulnerabilityVersionInfo>
-) -> Option<&server::Information> {
-    let highest = vulnerabilities.into_iter()
-        .map(|vulnerability_info| find_highest_severity_vulnerability(&vulnerability_info.vulnerabilities).expect("always at least one vulnerability present"))
+    vulnerabilities: Vec<VulnerabilityVersionInfo>
+) -> Option<server::Information> {
+    let highest: Vec<server::Information> = vulnerabilities.iter()
+        .map(|vulnerability_info| {
+            let x = find_highest_severity_vulnerability(vulnerability_info.vulnerabilities.clone()).expect("always at least one vulnerability present");
+            x
+        })
         .collect();
     find_highest_severity_vulnerability(highest)
 }
 
 fn find_highest_severity_vulnerability(
-    vulnerabilities: &[server::Information],
-) -> Option<&server::Information> {
+    vulnerabilities: Vec<server::Information>,
+) -> Option<server::Information> {
     vulnerabilities
         .iter()
         .max_by(|a, b| a.severity.cmp(&b.severity))
+        .cloned()
 }

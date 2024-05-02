@@ -51,7 +51,8 @@ impl Parser for CargoParser {
                     Ok(cmd_result) => {
                         for ele in parsed {
                             if let Some(purls) = cmd_result.get(&ele.purl) {
-                                result.insert(ele, [vec![ele.purl], purls.to_vec()].concat());
+                                let cloned_purl = ele.purl.clone(); // Clone ele.purl
+                                result.insert(ele, [vec![cloned_purl], purls.to_vec()].concat());
                             }
                         }
                     },
@@ -82,7 +83,7 @@ impl Parser for CargoParser {
             Ok(purls_ranges) => purls_ranges
                 .into_iter()
                 .find(|item| {
-                    let range = item.0;
+                    let range = &item.0;
                     range.range.start.row <= line_position && range.range.end.row >= line_position
                 })
                 .map(|item| item.0.purl),
