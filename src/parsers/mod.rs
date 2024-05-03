@@ -3,7 +3,7 @@ mod pom;
 use reqwest::Url;
 use tracing::debug;
 
-use crate::{lsp::document_store::{MetadataDependencies, PurlRange}, server::purl::Purl, VulnLspError};
+use crate::{lsp::document_store::MetadataDependencies, server::purl::Purl, VulnLspError};
 use anyhow::anyhow;
 
 trait Parser: Send + Sync {

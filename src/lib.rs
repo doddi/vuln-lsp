@@ -17,6 +17,8 @@ pub(crate) enum VulnLspError {
     ParserNotFound(Url),
     #[error("Error parsing {0}")]
     ManifestParse(String),
+    #[error("Error generating dependencies {0}")]
+    BuildDependency(String),
 
     #[error("Error sending {0} request to backend")]
     ServerRequest(Url),

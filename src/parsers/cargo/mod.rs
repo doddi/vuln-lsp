@@ -21,7 +21,7 @@ impl Parser for CargoParser {
     fn parse(&self, document: &str) -> anyhow::Result<MetadataDependencies> {
         debug!("Parsing Cargo.toml");
 
-        match parse_cargo_doc_for_ranges(document) {
+        let parsed = match parse_cargo_doc_for_ranges(document) {
             Ok(ranges) => {
                 debug!("Found {} ranges", ranges.len());
                 trace!("Ranges: {:?}", ranges);
@@ -46,32 +46,37 @@ impl Parser for CargoParser {
                 };
                 trace!("Found {} purl ranges", parsed.len());
 
-                let mut result: MetadataDependencies = MetadataDependencies::new();
-                match metadata_command() {
-                    Ok(cmd_result) => {
-                        for ele in parsed {
-                            if let Some(purls) = cmd_result.get(&ele.purl) {
-                                let cloned_purl = ele.purl.clone(); // Clone ele.purl
-                                result.insert(ele, [vec![cloned_purl], purls.to_vec()].concat());
-                            }
-                        }
-                    },
-                    Err(_) => {
-                        for ele in parsed {
-                            result.insert(ele, vec![]);
-                        }
-                    },
-                }
-
-                Ok(result)
+                parsed
             }
             Err(_err) => {
                 trace!("Failed to parse Cargo.toml");
                 Err(anyhow!(VulnLspError::ManifestParse(
                     "Failed to parse Cargo.toml".to_string(),
-                )))
+                )))?
             }
-        }
+        };
+
+        let cmd_result = match metadata_command() {
+            Ok(cmd_result) => cmd_result,
+            Err(_) => {
+                error!("Failed to get metadata");
+                Err(anyhow!(VulnLspError::BuildDependency(
+                    "Failed to get build dependencies".to_string(),
+                )))?
+            },
+        };
+
+        let result: MetadataDependencies = parsed
+            .iter()
+            .filter(|item| cmd_result.contains_key(&item.purl))
+            .map(|item| {
+                let purl_list = cmd_result.get(&item.purl).expect("none values already filtered out");
+                let cloned_purl = item.purl.clone();
+                (item.clone(), [vec![cloned_purl], purl_list.to_vec()].concat())
+            })
+            .collect();
+
+        Ok(result)
     }
 
     fn is_editing_version(&self, _document: &str, _line_position: usize) -> bool {
