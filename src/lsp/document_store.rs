@@ -62,10 +62,10 @@ impl DocumentStore {
         }
     }
 
-    pub fn insert(&self, url: &Url, content: String, purls: MetadataDependencies) {
+    pub fn insert(&self, url: &Url, content: String, info: MetadataDependencies) {
         let item = StorageItems {
             document: content,
-            dependencies: purls,
+            dependencies: info,
         };
 
         self.inner.lock().unwrap().insert(url.clone(), item);

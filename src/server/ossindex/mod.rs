@@ -22,6 +22,7 @@ impl OssIndex {
         &self,
         purls: Vec<Purl>,
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
+        trace!("getting component information from ossindex");
         // OssIndex does not like any qualifiers being specified so removed them
         let oss_purls = purls
             .iter()

@@ -23,8 +23,8 @@ pub fn calculate_diagnostics_for_vulnerabilities(
     storage_items: &StorageItems,
     vulnerabilities: Vec<&VulnerabilityVersionInfo>,
 ) -> Vec<Diagnostic> {
-    trace!("Matching up purls: {:?}", storage_items);
-    trace!("Against: {:?}", vulnerabilities);
+    trace!("Matching up purls: {:?}", storage_items.dependencies);
+    trace!("Against: {:?}", vulnerabilities.iter().map(|v| v.purl.clone()).collect::<Vec<_>>());
 
     let mut vulns: HashMap<PurlRange, Vec<&VulnerabilityVersionInfo>> = HashMap::new();
     for possible_vulnerability_match in vulnerabilities {
@@ -40,6 +40,7 @@ pub fn calculate_diagnostics_for_vulnerabilities(
         });
     }
 
+    trace!("Vulnerabilities matched: {:?}", vulns);
 
     let diagnostics = vulns.into_iter()
         .map(|vuln| {
@@ -68,12 +69,19 @@ pub fn calculate_diagnostics_for_vulnerabilities(
                 data: None,
             }
         }).collect();
+
+    trace!("Diagnostics: {:?}", diagnostics);
     diagnostics
 }
 
 fn purls_matches(purl: &server::purl::Purl, possible_vulnerability_match: &VulnerabilityVersionInfo) -> bool {
-    match purl.version == possible_vulnerability_match.purl.version
-                        && purl.group_id == possible_vulnerability_match.purl.group_id
+    // match purl.version == possible_vulnerability_match.purl.version
+    //                     && purl.group_id == possible_vulnerability_match.purl.group_id
+    //                     && purl.artifact_id == possible_vulnerability_match.purl.artifact_id {
+    //     true => return true,
+    //     false => return false,
+    // }
+    match purl.group_id == possible_vulnerability_match.purl.group_id
                         && purl.artifact_id == possible_vulnerability_match.purl.artifact_id {
         true => return true,
         false => return false,
@@ -83,20 +91,30 @@ fn purls_matches(purl: &server::purl::Purl, possible_vulnerability_match: &Vulne
 fn find_highest_severity_vulnerability_from_all(
     vulnerabilities: Vec<VulnerabilityVersionInfo>
 ) -> Option<server::Information> {
+    // trace!("::::::::::::::::::::::::");
+    // trace!("Start: Finding highest severity vulnerability from all: {:?}", vulnerabilities);
     let highest: Vec<server::Information> = vulnerabilities.iter()
+        .filter(|vulnerability_info| !vulnerability_info.vulnerabilities.is_empty())
         .map(|vulnerability_info| {
+            // trace!("Finding highest severity vulnerability from all: {:?}", vulnerability_info.vulnerabilities.clone());
             let x = find_highest_severity_vulnerability(vulnerability_info.vulnerabilities.clone()).expect("always at least one vulnerability present");
             x
         })
         .collect();
+    // trace!("::::::::::::::::::::::::");
     find_highest_severity_vulnerability(highest)
 }
 
 fn find_highest_severity_vulnerability(
     vulnerabilities: Vec<server::Information>,
 ) -> Option<server::Information> {
-    vulnerabilities
+    
+    let highest = vulnerabilities
         .iter()
         .max_by(|a, b| a.severity.cmp(&b.severity))
-        .cloned()
+        .cloned();
+
+    // trace!("Highest severity vulnerability: {:?}", highest);
+    // trace!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    highest
 }

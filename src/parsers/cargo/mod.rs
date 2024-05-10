@@ -44,7 +44,6 @@ impl Parser for CargoParser {
                         vec![]
                     }
                 };
-                trace!("Found {} purl ranges", parsed.len());
 
                 parsed
             }
@@ -56,6 +55,12 @@ impl Parser for CargoParser {
             }
         };
 
+        // trace!("==================================");
+        // parsed.iter().for_each(|item| {
+        //     trace!("Parsed: {}", item.purl);
+        // });
+        // trace!("==================================");
+        
         let cmd_result = match metadata_command() {
             Ok(cmd_result) => cmd_result,
             Err(_) => {
@@ -66,6 +71,14 @@ impl Parser for CargoParser {
             },
         };
 
+        // trace!("----------------------------------");
+        // cmd_result.keys().for_each(|key| {
+        //     trace!("cmd_result key: {}", key);
+        //     trace!("{:?}: dependencies {:?}", key, cmd_result.get(key).unwrap().len());
+        // });
+        // trace!("----------------------------------");
+
+        // trace!("//////////////////////////////////");
         let result: MetadataDependencies = parsed
             .iter()
             .filter(|item| cmd_result.contains_key(&item.purl))
@@ -76,7 +89,10 @@ impl Parser for CargoParser {
             })
             .collect();
 
+        // trace!("//////////////////////////////////");
+
         Ok(result)
+
     }
 
     fn is_editing_version(&self, _document: &str, _line_position: usize) -> bool {
@@ -103,14 +119,14 @@ fn parse_purl(dep: &cargo_toml::Dependency, name: &String) -> Purl {
             package: "cargo".to_string(),
             group_id: None,
             artifact_id: name.to_owned(),
-            version: simple.to_owned(),
+            version: simple.to_owned().replace(&['=', '>', '<', '~', ' '], ""),
             purl_type: None,
         },
         cargo_toml::Dependency::Detailed(detail) => Purl {
             package: "cargo".to_string(),
             group_id: None,
             artifact_id: name.to_owned(),
-            version: detail.version.to_owned().unwrap(),
+            version: detail.version.to_owned().unwrap().replace(&['=', '>', '<', '~', ' '], ""),
             purl_type: None,
         },
         cargo_toml::Dependency::Inherited(_) => Purl {

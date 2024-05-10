@@ -109,11 +109,12 @@ impl Visitor<'_> for PurlVisitor {
             _ => (version_split[0], find_package_type(version_split[1])),
         };
 
+        let version = version.replace(&['=', '>', '<', '~', ' '], "");
         Ok(Purl {
             package: package_type.to_string(),
             group_id,
             artifact_id,
-            version: version.to_string(),
+            version,
             purl_type,
         })
     }

@@ -88,15 +88,21 @@ impl Backend {
     async fn update_diagnostics(&self, uri: &Url, document: &str) {
         trace!("Updating diagnostics for {}", uri);
         if let Ok(metadata_dependencies) = self.parser_manager.parse(uri, document) {
-            trace!("Parsed purls: {:?}", metadata_dependencies);
+            // trace!("Parsed purls: {}", metadata_dependencies.len());
+
+            // trace!("meta");
+            // metadata_dependencies.iter().for_each(|(range, purl)| {
+            //     trace!("Purl: {:?}", purl);
+            //     trace!("Range: {:?}", range);
+            // });
 
             self.document_store
                 .insert(uri, document.to_owned(), metadata_dependencies);
 
-            trace!("Document store: {:?}", self.document_store);
+            // trace!("Document store: {:?}", self.document_store);
             let stored_items = self.document_store.get(uri).unwrap();
 
-            trace!("Found {} RangedPurls", stored_items.dependencies.len());
+            // trace!("Found {:?} stored items", stored_items);
 
             // Get all the purls for the project in a single vec
             let mut purls: Vec<Purl> = vec![];
@@ -112,8 +118,13 @@ impl Backend {
             } else if let Ok(vulnerabilities) =
                 self.server.get_component_information(not_found_keys).await
             {
+                // Filter out any responses that have empty vulnerability information
+                let vulnerabilities = vulnerabilities
+                    .into_iter()
+                    .filter(|v| !v.vulnerabilities.is_empty())
+                    .collect::<Vec<_>>();
                 self.cache_new_found_values(&vulnerabilities);
-                trace!("New Vulnerabilities cached: {:?}", vulnerabilities);
+                // trace!("New Vulnerabilities cached: {:?}", vulnerabilities);
             }
 
             if let Some(cached_entries) = self.cacher.get(&purls) {
