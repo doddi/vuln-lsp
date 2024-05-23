@@ -6,23 +6,24 @@ use crate::{
     parsers::Parser,
     server::purl::Purl,
 };
+use crate::parsers::common::combine_parsed_with_command_result;
+use crate::parsers::pom::dep_tree_cmd::build_dependency_list_from_command;
 
 pub(crate) struct PomParser;
 
 impl Parser for PomParser {
-    fn parse(&self, document: &str) -> anyhow::Result<MetadataDependencies> {
-        trace!("Parsing pom.xml");
-        let dependencies = calculate_dependencies_with_range(document);
-        trace!("Found dependencies: {:?}", dependencies);
-        let mut metadata = MetadataDependencies::new();
-        dependencies.into_iter().for_each(|dep| {
-            metadata.insert(dep, vec![]);
-        });
-        Ok(metadata)
-    }
-
     fn can_parse(&self, url: &reqwest::Url) -> bool {
         url.path().ends_with("pom.xml")
+    }
+
+    fn parse(&self, document: &str) -> anyhow::Result<MetadataDependencies> {
+        trace!("Parsing pom.xml");
+        let parsed = calculate_dependencies_with_range(document);
+        trace!("Found dependencies: {:?}", parsed);
+
+        let cmd_result = build_dependency_list_from_command().unwrap();
+
+        Ok(combine_parsed_with_command_result(parsed, cmd_result))
     }
 
     fn is_editing_version(&self, document: &str, line_position: usize) -> bool {

@@ -8,10 +8,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0fb9973-1354-41aa-acb8-f70f70d8beed" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/resources/maven/tree_response.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/parsers/common.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/parsers/pom/dep_tree_cmd.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/clients/vscode/extension.js" beforeDir="false" afterPath="$PROJECT_DIR$/clients/vscode/extension.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parsers/cargo/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parsers/cargo/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parsers/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parsers/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parsers/pom/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parsers/pom/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parsers/pom/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parsers/pom/parser.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -21,9 +25,28 @@
   <component name="CodyActiveAccount">
     <option name="activeAccountId" value="a28639f9-7b30-41e9-9426-c1eea8b147a6" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "doddi"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "git@github.com:doddi/vuln-lsp.git",
+    "accountId": "7baac739-8275-420c-bb9f-edbafbb02b86"
+  }
+}]]></component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="vw49bmus" />
   </component>
@@ -43,14 +66,21 @@
     "Cargo.Test metadata::test.executor": "Run",
     "Cargo.Test parsers::cargo::metadata::test::can_parse_metadata.executor": "Run",
     "Cargo.Test parsers::cargo::metadata::test::can_process_metadata.executor": "Debug",
+    "Cargo.Test parsers::pom::tree::test::can_get_parent_child_relationship.executor": "Run",
+    "Cargo.Test parsers::pom::tree::test::can_get_purl_from_digrph_string.executor": "Run",
+    "Cargo.Test parsers::pom::tree::test::parse_file.executor": "Run",
+    "Cargo.Test parsers::pom::tree::test::parse_parent_child_into_build_dependencies.executor": "Run",
+    "Cargo.Test parsers::pom::tree::test::should_move_to_start_state_if_start_found.executor": "Debug",
+    "Cargo.Test parsers::pom::tree::test::should_not_move_to_start_state_if_start_not_found.executor": "Run",
     "Cargo.Test server::ossindex::test::can_deserialize_with_vulnerabilities.executor": "Debug",
     "Cargo.Test server::purl::test::can_deserialize.executor": "Debug",
     "Cargo.Test server::purl::test::can_deserialize_npm.executor": "Run",
     "Cargo.Test server::purl::test::can_deserialize_struts.executor": "Debug",
+    "Cargo.Test tree::test.executor": "Run",
     "RunOnceActivity.CodyProjectSettingsMigration": "true",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "java",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/markdodgson/work/personal/code/rust/vuln-lsp",
     "node.js.detected.package.eslint": "true",
@@ -69,10 +99,11 @@
       <recent name="$PROJECT_DIR$/src/parsers/cargo" />
     </key>
   </component>
-  <component name="RunManager" selected="Cargo.Test parsers::cargo::metadata::test::can_process_metadata">
+  <component name="RunManager" selected="Cargo.Test parsers::pom::tree::test::parse_file">
     <configuration name="Run vuln-lsp" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="command" value="run --package vuln-lsp --bin vuln-lsp" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
       <option name="requiredFeatures" value="true" />
@@ -80,16 +111,16 @@
       <option name="withSudo" value="false" />
       <option name="buildTarget" value="REMOTE" />
       <option name="backtrace" value="SHORT" />
-      <envs />
       <option name="isRedirectInput" value="false" />
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test metadata::test" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package vuln-lsp --lib parsers::cargo::metadata::test" />
+    <configuration name="Test parsers::pom::tree::test::can_get_parent_child_relationship" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package vuln-lsp --lib parsers::pom::tree::test::can_get_parent_child_relationship -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
       <option name="requiredFeatures" value="true" />
@@ -97,16 +128,16 @@
       <option name="withSudo" value="false" />
       <option name="buildTarget" value="REMOTE" />
       <option name="backtrace" value="SHORT" />
-      <envs />
       <option name="isRedirectInput" value="false" />
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test parsers::cargo::metadata::test::can_parse_metadata" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package vuln-lsp --lib parsers::cargo::metadata::test::can_parse_metadata -- --exact" />
+    <configuration name="Test parsers::pom::tree::test::can_get_purl_from_digrph_string" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package vuln-lsp --lib parsers::pom::tree::test::can_get_purl_from_digrph_string -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
       <option name="requiredFeatures" value="true" />
@@ -114,16 +145,16 @@
       <option name="withSudo" value="false" />
       <option name="buildTarget" value="REMOTE" />
       <option name="backtrace" value="SHORT" />
-      <envs />
       <option name="isRedirectInput" value="false" />
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test parsers::cargo::metadata::test::can_process_metadata" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package vuln-lsp --lib parsers::cargo::metadata::test::can_process_metadata -- --exact" />
+    <configuration name="Test parsers::pom::tree::test::parse_file" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package vuln-lsp --lib parsers::pom::tree::test::parse_file -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
       <option name="requiredFeatures" value="true" />
@@ -131,16 +162,16 @@
       <option name="withSudo" value="false" />
       <option name="buildTarget" value="REMOTE" />
       <option name="backtrace" value="SHORT" />
-      <envs />
       <option name="isRedirectInput" value="false" />
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test server::ossindex::test::can_deserialize_with_vulnerabilities" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package vuln-lsp --lib server::ossindex::test::can_deserialize_with_vulnerabilities -- --exact" />
+    <configuration name="Test parsers::pom::tree::test::parse_parent_child_into_build_dependencies" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package vuln-lsp --lib parsers::pom::tree::test::parse_parent_child_into_build_dependencies -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
       <option name="requiredFeatures" value="true" />
@@ -148,16 +179,16 @@
       <option name="withSudo" value="false" />
       <option name="buildTarget" value="REMOTE" />
       <option name="backtrace" value="SHORT" />
-      <envs />
       <option name="isRedirectInput" value="false" />
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test server::purl::test::can_deserialize_struts" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package vuln-lsp --lib server::purl::test::can_deserialize_struts -- --exact" />
+    <configuration name="Test tree::test" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package vuln-lsp --lib parsers::pom::tree::test" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
       <option name="requiredFeatures" value="true" />
@@ -165,9 +196,6 @@
       <option name="withSudo" value="false" />
       <option name="buildTarget" value="REMOTE" />
       <option name="backtrace" value="SHORT" />
-      <envs>
-        <env name="RUST_BACKTRACE" value="full" />
-      </envs>
       <option name="isRedirectInput" value="false" />
       <option name="redirectInputPath" value="" />
       <method v="2">
@@ -177,6 +205,7 @@
     <configuration name="Test vuln-lsp" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="command" value="test --workspace" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
       <option name="requiredFeatures" value="true" />
@@ -184,7 +213,6 @@
       <option name="withSudo" value="false" />
       <option name="buildTarget" value="REMOTE" />
       <option name="backtrace" value="SHORT" />
-      <envs />
       <option name="isRedirectInput" value="false" />
       <option name="redirectInputPath" value="" />
       <method v="2">
@@ -194,11 +222,11 @@
     <list>
       <item itemvalue="Cargo.Run vuln-lsp" />
       <item itemvalue="Cargo.Test vuln-lsp" />
-      <item itemvalue="Cargo.Test metadata::test" />
-      <item itemvalue="Cargo.Test parsers::cargo::metadata::test::can_process_metadata" />
-      <item itemvalue="Cargo.Test parsers::cargo::metadata::test::can_parse_metadata" />
-      <item itemvalue="Cargo.Test server::ossindex::test::can_deserialize_with_vulnerabilities" />
-      <item itemvalue="Cargo.Test server::purl::test::can_deserialize_struts" />
+      <item itemvalue="Cargo.Test parsers::pom::tree::test::can_get_parent_child_relationship" />
+      <item itemvalue="Cargo.Test parsers::pom::tree::test::can_get_purl_from_digrph_string" />
+      <item itemvalue="Cargo.Test parsers::pom::tree::test::parse_file" />
+      <item itemvalue="Cargo.Test parsers::pom::tree::test::parse_parent_child_into_build_dependencies" />
+      <item itemvalue="Cargo.Test tree::test" />
       <item itemvalue="Gradle.Run IDE for UI Tests" />
       <item itemvalue="Gradle.Run Plugin" />
       <item itemvalue="Gradle.Run Qodana" />
@@ -207,16 +235,24 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Cargo.Test parsers::cargo::metadata::test::can_process_metadata" />
-        <item itemvalue="Cargo.Test metadata::test" />
-        <item itemvalue="Cargo.Test parsers::cargo::metadata::test::can_parse_metadata" />
-        <item itemvalue="Cargo.Test server::ossindex::test::can_deserialize_with_vulnerabilities" />
-        <item itemvalue="Cargo.Test server::purl::test::can_deserialize_struts" />
+        <item itemvalue="Cargo.Test parsers::pom::tree::test::parse_file" />
+        <item itemvalue="Cargo.Test parsers::pom::tree::test::parse_parent_child_into_build_dependencies" />
+        <item itemvalue="Cargo.Test tree::test" />
+        <item itemvalue="Cargo.Test parsers::pom::tree::test::can_get_parent_child_relationship" />
+        <item itemvalue="Cargo.Test parsers::pom::tree::test::can_get_purl_from_digrph_string" />
       </list>
     </recent_temporary>
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9f38398b9061-39b83d9b5494-intellij.indexing.shared.core-IU-241.15989.150" />
+        <option value="bundled-js-predefined-1d06a55b98c1-91d5c284f522-JavaScript-IU-241.15989.150" />
+      </set>
+    </attachedChunks>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
@@ -237,6 +273,7 @@
       <workItem from="1710428089316" duration="8339000" />
       <workItem from="1713975387862" duration="345000" />
       <workItem from="1713975739889" duration="950000" />
+      <workItem from="1716398750635" duration="26660000" />
     </task>
     <servers />
   </component>
@@ -250,6 +287,21 @@
           <url>file://$PROJECT_DIR$/src/parsers/cargo/metadata.rs</url>
           <line>63</line>
           <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/src/parsers/pom/dep_tree_cmd.rs</url>
+          <line>258</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/src/parsers/pom/dep_tree_cmd.rs</url>
+          <line>55</line>
+          <option name="timeStamp" value="12" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/src/parsers/pom/dep_tree_cmd.rs</url>
+          <line>139</line>
+          <option name="timeStamp" value="16" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

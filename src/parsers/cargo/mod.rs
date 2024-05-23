@@ -8,6 +8,7 @@ use crate::{
 use anyhow::anyhow;
 use cargo_toml::Manifest;
 use tracing::{debug, error, trace};
+use crate::parsers::common::combine_parsed_with_command_result;
 
 use super::Parser;
 
@@ -79,20 +80,7 @@ impl Parser for CargoParser {
         // trace!("----------------------------------");
 
         // trace!("//////////////////////////////////");
-        let result: MetadataDependencies = parsed
-            .iter()
-            .filter(|item| cmd_result.contains_key(&item.purl))
-            .map(|item| {
-                let purl_list = cmd_result.get(&item.purl).expect("none values already filtered out");
-                let cloned_purl = item.purl.clone();
-                (item.clone(), [vec![cloned_purl], purl_list.to_vec()].concat())
-            })
-            .collect();
-
-        // trace!("//////////////////////////////////");
-
-        Ok(result)
-
+        Ok(combine_parsed_with_command_result(parsed, cmd_result))
     }
 
     fn is_editing_version(&self, _document: &str, _line_position: usize) -> bool {
