@@ -10,9 +10,10 @@ use tower_lsp::{
 use tracing::{debug, info, trace, warn};
 
 use crate::{
-    lsp::{self, diagnostics},
+    common::purl::Purl,
+    lsp::diagnostics,
     parsers::ParserManager,
-    server::{cacher::Cacher, purl::Purl, VulnerabilityServer, VulnerabilityVersionInfo},
+    server::{cacher::Cacher, VulnerabilityServer, VulnerabilityVersionInfo},
 };
 
 use super::document_store::DocumentStore;
@@ -85,61 +86,49 @@ impl Backend {
         }
     }
 
-    async fn update_diagnostics(&self, uri: &Url, document: &str) {
-        trace!("Updating diagnostics for {}", uri);
-        if let Ok(metadata_dependencies) = self.parser_manager.parse(uri, document) {
-            // trace!("Parsed purls: {}", metadata_dependencies.len());
+    async fn update_diagnostics(&self, uri: &Url) {
+        if let Some(document) = self.document_store.get(uri) {
+            trace!("Updating diagnostics for {}", uri);
+            if let Ok(parsed_content) = self.parser_manager.parse(uri, &document.document) {
+                // TODO: Store the metadata for later use by hover etc
 
-            // trace!("meta");
-            // metadata_dependencies.iter().for_each(|(range, purl)| {
-            //     trace!("Purl: {:?}", purl);
-            //     trace!("Range: {:?}", range);
-            // });
+                let vals = parsed_content.transitives.clone().into_values();
+                let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
+                let dependencies = &flattened_dependencies[..];
 
-            self.document_store
-                .insert(uri, document.to_owned(), metadata_dependencies);
+                let unknown_purls = self.cacher.find_not_found_keys(dependencies);
+                trace!("{} purls are not currently cached", unknown_purls.len());
 
-            // trace!("Document store: {:?}", self.document_store);
-            let stored_items = self.document_store.get(uri).unwrap();
+                self.fetch_and_cache_vulnerabilities(unknown_purls).await;
 
-            // trace!("Found {:?} stored items", stored_items);
+                if let Some(cached_entries) = self.cacher.get(dependencies) {
+                    let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
 
-            // Get all the purls for the project in a single vec
-            let mut purls: Vec<Purl> = vec![];
-            for ele in &stored_items.dependencies {
-                purls.extend(ele.1.clone());
+                    let diagnostics: Vec<Diagnostic> =
+                        diagnostics::calculate_diagnostics_for_vulnerabilities(
+                            parsed_content,
+                            vulnerabilities,
+                        );
+                    trace!("Diagnostics: {:?}", diagnostics);
+                    self.client
+                        .publish_diagnostics(uri.clone(), diagnostics, None)
+                        .await;
+                }
             }
+        }
+    }
 
-            let not_found_keys = self.cacher.find_not_found_keys(&purls);
-            trace!("{} purls are not currently cached", not_found_keys.len());
-
-            if not_found_keys.is_empty() {
-                debug!("All requested purls found in cache");
-            } else if let Ok(vulnerabilities) =
-                self.server.get_component_information(not_found_keys).await
-            {
-                // Filter out any responses that have empty vulnerability information
-                let vulnerabilities = vulnerabilities
-                    .into_iter()
-                    .filter(|v| !v.vulnerabilities.is_empty())
-                    .collect::<Vec<_>>();
-                self.cache_new_found_values(&vulnerabilities);
-                // trace!("New Vulnerabilities cached: {:?}", vulnerabilities);
-            }
-
-            if let Some(cached_entries) = self.cacher.get(&purls) {
-                let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
-
-                let diagnostics: Vec<Diagnostic> =
-                    diagnostics::calculate_diagnostics_for_vulnerabilities(
-                        &stored_items,
-                        vulnerabilities,
-                    );
-                trace!("Diagnostics: {:?}", diagnostics);
-                self.client
-                    .publish_diagnostics(uri.clone(), diagnostics, None)
-                    .await;
-            }
+    async fn fetch_and_cache_vulnerabilities(&self, purls: Vec<Purl>) {
+        if purls.is_empty() {
+            debug!("All requested purls found in cache");
+        } else if let Ok(vulnerabilities) = self.server.get_component_information(purls).await {
+            // Filter out any responses that have empty vulnerability information
+            let vulnerabilities = vulnerabilities
+                .into_iter()
+                .filter(|v| !v.vulnerabilities.is_empty())
+                .collect::<Vec<_>>();
+            self.cache_new_found_values(&vulnerabilities);
+            // trace!("New Vulnerabilities cached: {:?}", vulnerabilities);
         }
     }
 }
@@ -189,114 +178,113 @@ impl LanguageServer for Backend {
         debug!("doc opened {}", params.text_document.uri);
 
         let uri = params.text_document.uri;
-        let text_document = &params.text_document.text;
+        let text_document = params.text_document.text;
 
-        self.update_diagnostics(&uri, text_document).await;
+        self.document_store.insert(&uri, text_document);
+        self.update_diagnostics(&uri).await;
     }
 
-    async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        info!("doc changed {}", params.text_document.uri);
+    async fn did_save(&self, params: lsp_types::DidSaveTextDocumentParams) {
+        info!("doc saved: {}", params.text_document.uri);
 
         let uri = params.text_document.uri;
-        let text_document = &params.content_changes[0].text;
-
-        self.update_diagnostics(&uri, text_document).await;
+        self.update_diagnostics(&uri).await;
     }
 
-    async fn completion(
-        &self,
-        params: lsp_types::CompletionParams,
-    ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::CompletionResponse>> {
-        let url = params.text_document_position.text_document.uri;
+    // async fn completion(
+    //     &self,
+    //     params: lsp_types::CompletionParams,
+    // ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::CompletionResponse>> {
+    //     let url = params.text_document_position.text_document.uri;
+    //
+    //     let content = self.document_store.get(&url);
+    //
+    //     match content {
+    //         Some(items) => match params.context {
+    //             Some(CompletionContext {
+    //                 trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
+    //                 ..
+    //             })
+    //             | Some(CompletionContext {
+    //                 trigger_kind: CompletionTriggerKind::INVOKED,
+    //                 ..
+    //             }) => {
+    //                 let line_position = params.text_document_position.position.line;
+    //
+    //                 if self.parser_manager.is_editing_version(
+    //                     &url,
+    //                     &items.document,
+    //                     line_position as usize,
+    //                 ) {
+    //                     match self.parser_manager.get_purl(
+    //                         &url,
+    //                         &items.document,
+    //                         line_position as usize,
+    //                     ) {
+    //                         Some(purl) => {
+    //                             debug!("PURL: {:?}", purl);
+    //                             match self.server.get_versions_for_purl(purl).await {
+    //                                 Ok(response) => {
+    //                                     Ok(Some(lsp::completion::build_initial_response(response)))
+    //                                 }
+    //                                 // TODO: Add better error handling
+    //                                 Err(_) => Ok(None),
+    //                             }
+    //                         }
+    //                         None => todo!(),
+    //                     }
+    //                 } else {
+    //                     Ok(None)
+    //                 }
+    //             }
+    //             _ => Ok(None),
+    //         },
+    //         None => {
+    //             warn!("Document not found");
+    //             // TODO: Should probably send back an error as the document should always be known
+    //             Ok(None)
+    //         }
+    //     }
+    // }
+    //
+    // async fn completion_resolve(
+    //     &self,
+    //     params: lsp_types::CompletionItem,
+    // ) -> tower_lsp::jsonrpc::Result<lsp_types::CompletionItem> {
+    //     debug!("completion_resolve: {:?}", params);
+    //     let data = params.data.unwrap();
+    //     let purl = serde_json::from_value(data).unwrap();
+    //
+    //     debug!("about to lookup completion for {}", purl);
+    //     match self.server.get_component_information(vec![purl]).await {
+    //         Ok(vulnerabilities) => Ok(lsp::completion::build_response(&vulnerabilities[0])),
+    //         Err(_) => {
+    //             debug!("Failed to get component information");
+    //             Err(tower_lsp::jsonrpc::Error::internal_error())
+    //         }
+    //     }
+    // }
 
-        let content = self.document_store.get(&url);
-
-        match content {
-            Some(items) => match params.context {
-                Some(CompletionContext {
-                    trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
-                    ..
-                })
-                | Some(CompletionContext {
-                    trigger_kind: CompletionTriggerKind::INVOKED,
-                    ..
-                }) => {
-                    let line_position = params.text_document_position.position.line;
-
-                    if self.parser_manager.is_editing_version(
-                        &url,
-                        &items.document,
-                        line_position as usize,
-                    ) {
-                        match self.parser_manager.get_purl(
-                            &url,
-                            &items.document,
-                            line_position as usize,
-                        ) {
-                            Some(purl) => {
-                                debug!("PURL: {:?}", purl);
-                                match self.server.get_versions_for_purl(purl).await {
-                                    Ok(response) => {
-                                        Ok(Some(lsp::completion::build_initial_response(response)))
-                                    }
-                                    // TODO: Add better error handling
-                                    Err(_) => Ok(None),
-                                }
-                            }
-                            None => todo!(),
-                        }
-                    } else {
-                        Ok(None)
-                    }
-                }
-                _ => Ok(None),
-            },
-            None => {
-                warn!("Document not found");
-                // TODO: Should probably send back an error as the document should always be known
-                Ok(None)
-            }
-        }
-    }
-
-    async fn completion_resolve(
-        &self,
-        params: lsp_types::CompletionItem,
-    ) -> tower_lsp::jsonrpc::Result<lsp_types::CompletionItem> {
-        debug!("completion_resolve: {:?}", params);
-        let data = params.data.unwrap();
-        let purl = serde_json::from_value(data).unwrap();
-
-        debug!("about to lookup completion for {}", purl);
-        match self.server.get_component_information(vec![purl]).await {
-            Ok(vulnerabilities) => Ok(lsp::completion::build_response(&vulnerabilities[0])),
-            Err(_) => {
-                debug!("Failed to get component information");
-                Err(tower_lsp::jsonrpc::Error::internal_error())
-            }
-        }
-    }
-
-    async fn hover(
-        &self,
-        params: lsp_types::HoverParams,
-    ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::Hover>> {
-        let line_number = params.text_document_position_params.position.line;
-        let uri = params.text_document_position_params.text_document.uri;
-
-        info!("Hovering over line: {}", line_number);
-        match self
-            .document_store
-            .get_purl_for_position(&uri, line_number as usize)
-        {
-            Some(purl) => tower_lsp::jsonrpc::Result::Ok(Some(lsp_types::Hover {
-                contents: self.generate_hover_content(purl.clone()).await,
-                range: None,
-            })),
-            None => {
-                warn!("No purl found for position");
-                tower_lsp::jsonrpc::Result::Err(tower_lsp::jsonrpc::Error::method_not_found())
-            }
-        }
-    }
+    // async fn hover(
+    //     &self,
+    //     params: lsp_types::HoverParams,
+    // ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::Hover>> {
+    //     let line_number = params.text_document_position_params.position.line;
+    //     let uri = params.text_document_position_params.text_document.uri;
+    //
+    //     trace!("Hovering over line: {}", line_number);
+    //     match self
+    //         .document_store
+    //         .get_purl_for_position(&uri, line_number as usize)
+    //     {
+    //         Some(purl) => tower_lsp::jsonrpc::Result::Ok(Some(lsp_types::Hover {
+    //             contents: self.generate_hover_content(purl.clone()).await,
+    //             range: None,
+    //         })),
+    //         None => {
+    //             warn!("No purl found for position");
+    //             tower_lsp::jsonrpc::Result::Err(tower_lsp::jsonrpc::Error::method_not_found())
+    //         }
+    //     }
+    // }
 }

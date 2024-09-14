@@ -7,6 +7,7 @@ use tokio::io::{stdin, stdout};
 use tower_lsp::{LspService, Server};
 use tracing::trace;
 
+pub(crate) mod common;
 mod lsp;
 mod parsers;
 pub mod server;

@@ -3,9 +3,8 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::process::Command;
 
-use crate::server::purl::Purl;
-use crate::lsp::document_store::BuildDependencies;
-
+use crate::common::purl::Purl;
+use crate::common::BuildDependencies;
 
 #[derive(Debug, Deserialize)]
 struct Metadata {
@@ -16,7 +15,7 @@ struct Metadata {
 #[derive(Debug, Deserialize)]
 struct Node {
     pub id: String,
-    pub dependencies: Vec<String>
+    pub dependencies: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,13 +28,25 @@ struct Package {
 
 impl Into<Purl> for Package {
     fn into(self) -> Purl {
-        Purl { package: "cargo".to_string(), group_id: None, artifact_id: self.name, version: self.version, purl_type: None }
+        Purl {
+            package: "cargo".to_string(),
+            group_id: None,
+            artifact_id: self.name,
+            version: self.version,
+            purl_type: None,
+        }
     }
 }
 
 impl Into<Purl> for &Package {
     fn into(self) -> Purl {
-        Purl { package: "cargo".to_string(), group_id: None, artifact_id: self.name.clone(), version: self.version.clone(), purl_type: None }
+        Purl {
+            package: "cargo".to_string(),
+            group_id: None,
+            artifact_id: self.name.clone(),
+            version: self.version.clone(),
+            purl_type: None,
+        }
     }
 }
 
@@ -50,7 +61,7 @@ struct Dependency {
     name: String,
 }
 
-pub fn metadata_command() -> anyhow::Result<BuildDependencies> {
+pub(crate) fn build_command() -> anyhow::Result<BuildDependencies> {
     let output = Command::new("cargo")
         .args(["metadata"])
         .output()
@@ -59,13 +70,13 @@ pub fn metadata_command() -> anyhow::Result<BuildDependencies> {
     // TODO: Check for error before continuing
 
     let display = String::from_utf8(output.stdout).unwrap();
-    match metadata_parse(display.as_str()) {
-        Ok(metadata) => metadata_process(metadata),
-        Err(e) => Err(anyhow!("Parse error {e}"))
+    match build_result_parse(display.as_str()) {
+        Ok(metadata) => build_result_process(metadata),
+        Err(e) => Err(anyhow!("Parse error {e}")),
     }
 }
 
-fn metadata_parse(data: &str) -> anyhow::Result<Metadata> {
+fn build_result_parse(data: &str) -> anyhow::Result<Metadata> {
     let result = serde_json::from_str(data);
 
     match result {
@@ -74,12 +85,15 @@ fn metadata_parse(data: &str) -> anyhow::Result<Metadata> {
     }
 }
 
-fn metadata_process(
-    metadata: Metadata,
-) -> anyhow::Result<BuildDependencies> {
+fn build_result_process(metadata: Metadata) -> anyhow::Result<BuildDependencies> {
     let root_id = metadata.resolve.root;
 
-    let node_map: BTreeMap<String, Node> = metadata.resolve.nodes.into_iter().map(|node| (node.id.clone(), node)).collect();
+    let node_map: BTreeMap<String, Node> = metadata
+        .resolve
+        .nodes
+        .into_iter()
+        .map(|node| (node.id.clone(), node))
+        .collect();
 
     let root_node = node_map.get(&root_id).expect("should have a root node");
 
@@ -96,17 +110,25 @@ fn metadata_process(
     }
 
     // At this point we have all the projects direct dependencies collated list of child dependecies
-    let package_map: BTreeMap<String, Package> = metadata.packages.into_iter().map(|package| (package.id.clone(), package)).collect();
+    let package_map: BTreeMap<String, Package> = metadata
+        .packages
+        .into_iter()
+        .map(|package| (package.id.clone(), package))
+        .collect();
 
     let mut build_dependencies: BuildDependencies = HashMap::new();
 
     dep_collection.iter().for_each(|dep| {
-        let package_purl: Purl = package_map.get(dep.0)
-            .expect("unable to find package from id").into();
+        let package_purl: Purl = package_map
+            .get(dep.0)
+            .expect("unable to find package from id")
+            .into();
 
-        let children: Vec<Purl> = dep.1.iter().map(|ele| {
-            package_map.get(ele).expect("child not found").into()
-        }).collect();
+        let children: Vec<Purl> = dep
+            .1
+            .iter()
+            .map(|ele| package_map.get(ele).expect("child not found").into())
+            .collect();
 
         build_dependencies.insert(package_purl, children);
     });
@@ -124,8 +146,6 @@ fn add_dependencies(node_map: &BTreeMap<String, Node>, collection: &mut Vec<Stri
 
 #[cfg(test)]
 mod test {
-    use crate::lsp::document_store::{Position, Range};
-
     use super::*;
 
     #[test]
@@ -138,7 +158,7 @@ mod test {
     #[test]
     fn can_parse_metadata() {
         let data = include_str!("../../../resources/cargo/output.json");
-        let metadata = metadata_parse(data).unwrap();
+        let metadata = build_result_parse(data).unwrap();
 
         assert_eq!(metadata.packages.len(), 196)
     }
@@ -187,8 +207,8 @@ mod test {
         //     },
         // ];
         let data = include_str!("../../../resources/cargo/output.json");
-        let metadata = metadata_parse(data).unwrap();
+        let metadata = build_result_parse(data).unwrap();
 
-        let dependencies = metadata_process(metadata).unwrap();
+        let dependencies = build_result_process(metadata).unwrap();
     }
 }

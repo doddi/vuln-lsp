@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 
-use self::purl::Purl;
+use crate::common::purl::Purl;
 
 pub(crate) mod cacher;
 pub(crate) mod dummy;
 pub(crate) mod ossindex;
-pub mod purl;
 pub(crate) mod sonatype;
 
 #[derive(Debug, Clone)]
@@ -18,14 +17,14 @@ pub enum VulnerableServerType {
 #[derive(Debug, Clone)]
 pub(crate) struct VulnerabilityVersionInfo {
     pub purl: Purl,
-    pub vulnerabilities: Vec<Information>,
+    pub vulnerabilities: Vec<VulnerabilityInformation>,
 }
 
 impl VulnerabilityVersionInfo {
     pub fn find_highest_severity_vulnerability<'a>(
         &self,
-        vulnerabilities: &'a [Information],
-    ) -> Option<&'a Information> {
+        vulnerabilities: &'a [VulnerabilityInformation],
+    ) -> Option<&'a VulnerabilityInformation> {
         vulnerabilities
             .iter()
             .max_by(|a, b| a.severity.cmp(&b.severity))
@@ -42,7 +41,7 @@ pub(crate) enum Severity {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Information {
+pub(crate) struct VulnerabilityInformation {
     pub severity: Severity,
     pub summary: String,
     pub detail: String,

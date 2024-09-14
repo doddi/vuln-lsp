@@ -1,6 +1,6 @@
-use crate::VulnLspError;
+use crate::{common::purl::Purl, VulnLspError};
 
-use super::{purl::Purl, Information, VulnerabilityServer, VulnerabilityVersionInfo};
+use super::{VulnerabilityInformation, VulnerabilityServer, VulnerabilityVersionInfo};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -135,7 +135,7 @@ impl From<ComponentReport> for VulnerabilityVersionInfo {
     }
 }
 
-impl From<ComponentReportVulnerability> for Information {
+impl From<ComponentReportVulnerability> for VulnerabilityInformation {
     fn from(value: ComponentReportVulnerability) -> Self {
         Self {
             severity: calculate_violation_level(value.cvss_score),

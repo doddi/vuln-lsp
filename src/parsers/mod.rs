@@ -1,39 +1,43 @@
 mod cargo;
-mod pom;
+mod maven;
+use std::collections::HashMap;
+
+use cargo::Cargo;
+use maven::Maven;
 use reqwest::Url;
 use tracing::debug;
 
-use crate::{lsp::document_store::MetadataDependencies, server::purl::Purl, VulnLspError};
+use crate::{
+    common::{purl::Purl, MetadataDependencies},
+    VulnLspError,
+};
 use anyhow::anyhow;
+
+pub(crate) struct ParseContent {
+    pub ranges: MetadataDependencies,
+    pub transitives: HashMap<Purl, Vec<Purl>>,
+}
 
 trait Parser: Send + Sync {
     fn can_parse(&self, url: &Url) -> bool;
-    fn parse(&self, document: &str) -> anyhow::Result<MetadataDependencies>;
-
-    fn is_editing_version(&self, document: &str, line_position: usize) -> bool;
-    fn get_purl(&self, document: &str, line_position: usize) -> Option<Purl>;
+    fn parse(&self, document: &str) -> anyhow::Result<ParseContent>;
 }
 
 pub struct ParserManager {
     parsers: Vec<Box<dyn Parser>>,
 }
 
-fn create_pom_parser() -> Box<dyn Parser> {
-    Box::new(pom::parser::PomParser {})
-}
-
-fn create_cargo_parser() -> Box<dyn Parser> {
-    Box::new(cargo::CargoParser {})
-}
-
 impl ParserManager {
     pub fn new() -> Self {
-        let parsers = vec![create_pom_parser(), create_cargo_parser()];
+        let parsers = vec![
+            Box::new(Cargo::new()) as Box<dyn Parser>,
+            Box::new(Maven::new()) as Box<dyn Parser>,
+        ];
 
         Self { parsers }
     }
 
-    pub fn parse(&self, url: &Url, document: &str) -> anyhow::Result<MetadataDependencies> {
+    pub fn parse(&self, url: &Url, document: &str) -> anyhow::Result<ParseContent> {
         for parser in &self.parsers {
             if parser.can_parse(url) {
                 return parser.parse(document);
@@ -41,23 +45,5 @@ impl ParserManager {
         }
         debug!("No parser found for {}", url);
         Err(anyhow!(VulnLspError::ParserNotFound(url.clone())))
-    }
-
-    pub fn is_editing_version(&self, url: &Url, document: &str, line_position: usize) -> bool {
-        for parser in &self.parsers {
-            if parser.can_parse(url) {
-                return parser.is_editing_version(document, line_position);
-            }
-        }
-        false
-    }
-
-    pub fn get_purl(&self, url: &Url, document: &str, line_position: usize) -> Option<Purl> {
-        for parser in &self.parsers {
-            if parser.can_parse(url) {
-                return parser.get_purl(document, line_position);
-            }
-        }
-        None
     }
 }

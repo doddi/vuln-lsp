@@ -23,7 +23,6 @@ arguments where `<level>` is any of the following:
 - `debug`
 - `trace`
 
-
 ## Editors
 
 ### Neovim
@@ -33,21 +32,22 @@ arguments where `<level>` is any of the following:
 To enable the lsp for neovim, add the following to your `init.lua`:
 
 ```lua
-vim.api.nvim_create_autocmd("BufEnter", {
-  pattern = "pom.xml",
+vim.api.nvim_create_autocmd("bufenter", {
+  pattern = { "pom.xml", "Cargo.toml" },
   callback = function()
     vim.lsp.start({
       name = "vuln-lsp",
       cmd = { "vuln-lsp" },
-      root_dir = vim.fs.dirname(vim.fs.find({ "pom.xml" }, { upward = true })[1]),
+      root_dir = vim.fs.root(0, { "pom.xml", "Cargo.toml" }),
     })
   end,
 })
 ```
 
-This will start the lsp when you open a  `pom.xml`  file.
+This will start the lsp when you open either a `pom.xml` or `Cargo.toml` file.
 
 ### Vscode
+
 ![vscode](./docs/vuln_vscode.gif)
 
 To build:
@@ -62,29 +62,30 @@ with the following contents:
 
 ```json
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "extensionHost",
-            "request": "launch",
-            "name": "Debug LSP Extension",
-            "runtimeExecutable": "${execPath}",
-            "env": {
-                "RUST_LOG": "debug"
-            },
-            "args": [
-              "--extensionDevelopmentPath=${workspaceRoot}/anathema-lsp/clients/vscode",
-              "--disable-extensions",
-              "${workspaceRoot}/anathema-lsp/"
-            ]
-          }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "extensionHost",
+      "request": "launch",
+      "name": "Debug LSP Extension",
+      "runtimeExecutable": "${execPath}",
+      "env": {
+        "RUST_LOG": "debug"
+      },
+      "args": [
+        "--extensionDevelopmentPath=${workspaceRoot}/anathema-lsp/clients/vscode",
+        "--disable-extensions",
+        "${workspaceRoot}/anathema-lsp/"
+      ]
+    }
+  ]
 }
-
 ```
 
 Run the debugger and open the provided `test.anat` file to test the lsp.
 
 ### Intellij
+
 ![intellij](./docs/vuln_intellij.gif)
+
 ## Features

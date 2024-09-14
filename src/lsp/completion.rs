@@ -5,7 +5,10 @@ use tower_lsp::lsp_types::{
 };
 use tracing::debug;
 
-use crate::server::{purl::Purl, Severity, VulnerabilityVersionInfo};
+use crate::{
+    common::purl::Purl,
+    server::{Severity, VulnerabilityVersionInfo},
+};
 
 impl From<VulnerabilityVersionInfo> for CompletionItem {
     fn from(value: VulnerabilityVersionInfo) -> Self {

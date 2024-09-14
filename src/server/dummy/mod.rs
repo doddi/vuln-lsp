@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use rand::Rng;
 
-use super::{purl::Purl, Information, Severity, VulnerabilityServer, VulnerabilityVersionInfo};
+use crate::common::purl::Purl;
+
+use super::{Severity, VulnerabilityInformation, VulnerabilityServer, VulnerabilityVersionInfo};
 
 pub struct Dummy;
 
@@ -26,7 +28,7 @@ impl VulnerabilityServer for Dummy {
             .enumerate()
             .map(|(index, purl)| VulnerabilityVersionInfo {
                 purl: purl.clone(),
-                vulnerabilities: vec![Information {
+                vulnerabilities: vec![VulnerabilityInformation {
                     summary: format!("Summary {index}").to_string(),
                     severity: random_severity(),
                     detail: format!("Detail {index}").to_string(),

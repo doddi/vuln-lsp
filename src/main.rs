@@ -1,7 +1,10 @@
-use std::{fmt::Debug, fs::File, sync::Mutex};
+use std::fmt::Debug;
+
+mod logging;
 
 use clap::Parser;
-use tracing::{info, trace};
+use logging::enable_tracing_support;
+use tracing::info;
 use vuln_lsp::server;
 
 #[derive(Parser, Debug)]
@@ -29,7 +32,7 @@ enum ServerType {
 }
 
 #[derive(Clone, clap::ValueEnum, Debug)]
-enum LogLevel {
+pub(crate) enum LogLevel {
     Trace,
     Debug,
     Info,
@@ -41,19 +44,10 @@ enum LogLevel {
 async fn main() {
     let args = Args::parse();
 
-    trace!("Starting Vuln Lsp");
-    if let Some(level) = args.log_level {
-        let log_file = File::create(args.log_file).expect("should create trace file");
-        tracing_subscriber::fmt()
-            .with_env_filter(format!("vuln_lsp={level:?}"))
-            .with_writer(Mutex::new(log_file))
-            .init();
-        info!(
-            "{} has tracing is enabled at level: {:?}",
-            clap::crate_name!(),
-            level
-        );
-    };
+    if let Some(log_level) = args.log_level {
+        enable_tracing_support(log_level);
+    }
+    info!("Starting Vuln Lsp");
 
     let server_type = match args.server {
         ServerType::Dummy => server::VulnerableServerType::Dummy,

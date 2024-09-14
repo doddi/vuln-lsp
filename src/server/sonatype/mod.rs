@@ -8,8 +8,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, trace, warn};
 
-use super::{purl::Purl, Information, Severity, VulnerabilityServer, VulnerabilityVersionInfo};
-use crate::{server, VulnLspError};
+use super::{Severity, VulnerabilityInformation, VulnerabilityServer, VulnerabilityVersionInfo};
+use crate::{common::purl::Purl, server, VulnLspError};
 
 pub(crate) struct Sonatype {
     pub client: reqwest::Client,
@@ -354,9 +354,9 @@ struct SecurityIssue {
     pub threat_category: String,
 }
 
-impl From<SecurityIssue> for Information {
+impl From<SecurityIssue> for VulnerabilityInformation {
     fn from(value: SecurityIssue) -> Self {
-        Information {
+        VulnerabilityInformation {
             severity: Severity::from(value.severity),
             summary: value.threat_category,
             detail: value.url,
