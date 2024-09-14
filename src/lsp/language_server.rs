@@ -10,17 +10,15 @@ use tower_lsp::{
 use tracing::{debug, info, trace, warn};
 
 use crate::{
-    common::purl::Purl,
+    common::{document_store::DocumentStore, purl::Purl},
     lsp::diagnostics,
     parsers::ParserManager,
     server::{cacher::Cacher, VulnerabilityServer, VulnerabilityVersionInfo},
 };
 
-use super::document_store::DocumentStore;
-
 pub(crate) struct Backend {
     client: Client,
-    document_store: DocumentStore,
+    document_store: DocumentStore<Url, String>,
     server: Box<dyn VulnerabilityServer>,
     parser_manager: ParserManager,
     cacher: Cacher<Purl, VulnerabilityVersionInfo>,
@@ -30,7 +28,7 @@ impl Backend {
     pub fn new(
         client: Client,
         server: Box<dyn VulnerabilityServer>,
-        document_store: DocumentStore,
+        document_store: DocumentStore<Url, String>,
         parser_manager: ParserManager,
     ) -> Self {
         Backend {
@@ -89,7 +87,7 @@ impl Backend {
     async fn update_diagnostics(&self, uri: &Url) {
         if let Some(document) = self.document_store.get(uri) {
             trace!("Updating diagnostics for {}", uri);
-            if let Ok(parsed_content) = self.parser_manager.parse(uri, &document.document) {
+            if let Ok(parsed_content) = self.parser_manager.parse(uri, &document) {
                 // TODO: Store the metadata for later use by hover etc
 
                 let vals = parsed_content.transitives.clone().into_values();

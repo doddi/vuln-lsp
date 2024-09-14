@@ -1,4 +1,5 @@
-use lsp::{document_store::DocumentStore, language_server::Backend};
+use common::document_store::DocumentStore;
+use lsp::language_server::Backend;
 use parsers::ParserManager;
 use reqwest::Url;
 use server::{VulnerabilityServer, VulnerableServerType};
