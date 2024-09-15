@@ -159,24 +159,20 @@ mod test {
         assert!(!response.is_empty());
         assert_eq!(response.len(), 3);
 
-        let mut test_map: Vec<(Purl, Range)> = Vec::new();
-        let mut idx: usize = 0;
+        let mut test_map: HashMap<String, Range> = HashMap::new();
+
         response.into_iter().for_each(|(key, value)| {
-            test_map.insert(idx, (key, value));
-            idx += 1;
+            test_map.insert(key.artifact_id, value);
         });
 
-        let mut actual = &test_map[0];
-        assert_eq!(actual.0.artifact_id, "selenium-java");
-        assert_eq!(actual.1.start.row, 16);
-        assert_eq!(actual.1.end.row, 20);
-        actual = &test_map[1];
-        assert_eq!(actual.0.artifact_id, "opensaml");
-        assert_eq!(actual.1.start.row, 21);
-        assert_eq!(actual.1.end.row, 25);
-        actual = &test_map[2];
-        assert_eq!(actual.0.artifact_id, "struts-core");
-        assert_eq!(actual.1.start.row, 26);
-        assert_eq!(actual.1.end.row, 30);
+        let mut actual = test_map.get("selenium-java").unwrap();
+        assert_eq!(actual.start.row, 16);
+        assert_eq!(actual.end.row, 20);
+        actual = test_map.get("opensaml").unwrap();
+        assert_eq!(actual.start.row, 21);
+        assert_eq!(actual.end.row, 25);
+        actual = test_map.get("struts-core").unwrap();
+        assert_eq!(actual.start.row, 26);
+        assert_eq!(actual.end.row, 30);
     }
 }

@@ -31,6 +31,7 @@ impl VulnerabilityVersionInfo {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
 pub(crate) enum Severity {
     Critical,
@@ -40,6 +41,7 @@ pub(crate) enum Severity {
     None,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct VulnerabilityInformation {
     pub severity: Severity,
@@ -48,6 +50,7 @@ pub(crate) struct VulnerabilityInformation {
     pub license: Vec<License>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct License {
     pub title: String,

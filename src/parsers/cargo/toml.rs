@@ -38,7 +38,7 @@ fn parse_purl(dep: &cargo_toml::Dependency, name: &String) -> Purl {
             package: "cargo".to_string(),
             group_id: None,
             artifact_id: name.to_owned(),
-            version: simple.to_owned().replace(&['=', '>', '<', '~', ' '], ""),
+            version: simple.to_owned().replace(['=', '>', '<', '~', ' '], ""),
             purl_type: None,
         },
         cargo_toml::Dependency::Detailed(detail) => Purl {
@@ -49,7 +49,7 @@ fn parse_purl(dep: &cargo_toml::Dependency, name: &String) -> Purl {
                 .version
                 .to_owned()
                 .unwrap()
-                .replace(&['=', '>', '<', '~', ' '], ""),
+                .replace(['=', '>', '<', '~', ' '], ""),
             purl_type: None,
         },
         cargo_toml::Dependency::Inherited(_) => Purl {

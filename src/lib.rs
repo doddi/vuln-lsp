@@ -29,7 +29,7 @@ pub(crate) enum VulnLspError {
     ServerParse,
 }
 
-pub async fn start(server_type: VulnerableServerType) {
+pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
     let server = create_server(&server_type).await;
     let document_store = DocumentStore::new();
     let parsed_store = DocumentStore::new();
@@ -44,7 +44,7 @@ pub async fn start(server_type: VulnerableServerType) {
             document_store,
             parsed_store,
             vuln_store,
-            ParserManager::new(),
+            ParserManager::new(direct_only),
         )
     })
     .finish();

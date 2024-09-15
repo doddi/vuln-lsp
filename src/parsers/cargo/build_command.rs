@@ -1,10 +1,12 @@
 use anyhow::anyhow;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
-use std::process::Command;
+use std::process::{Command, ExitStatus};
+use tracing::trace;
 
 use crate::common::purl::Purl;
 use crate::common::BuildDependencies;
+use crate::VulnLspError;
 
 #[derive(Debug, Deserialize)]
 struct Metadata {
@@ -26,25 +28,25 @@ struct Package {
     pub dependencies: Vec<Dependency>,
 }
 
-impl Into<Purl> for Package {
-    fn into(self) -> Purl {
+impl From<Package> for Purl {
+    fn from(val: Package) -> Self {
         Purl {
             package: "cargo".to_string(),
             group_id: None,
-            artifact_id: self.name,
-            version: self.version,
+            artifact_id: val.name,
+            version: val.version,
             purl_type: None,
         }
     }
 }
 
-impl Into<Purl> for &Package {
-    fn into(self) -> Purl {
+impl From<&Package> for Purl {
+    fn from(val: &Package) -> Self {
         Purl {
             package: "cargo".to_string(),
             group_id: None,
-            artifact_id: self.name.clone(),
-            version: self.version.clone(),
+            artifact_id: val.name.clone(),
+            version: val.version.clone(),
             purl_type: None,
         }
     }
@@ -62,18 +64,18 @@ struct Dependency {
 }
 
 pub(crate) fn build_command() -> anyhow::Result<BuildDependencies> {
-    let output = Command::new("cargo")
-        .args(["metadata"])
-        .output()
-        .expect("failed to execute metadata command");
-
-    // TODO: Check for error before continuing
-
-    let display = String::from_utf8(output.stdout).unwrap();
-    match build_result_parse(display.as_str()) {
-        Ok(metadata) => build_result_process(metadata),
-        Err(e) => Err(anyhow!("Parse error {e}")),
+    if let Ok(output) = Command::new("cargo").args(["metadata"]).output() {
+        if output.status.success() {
+            if let Ok(display) = String::from_utf8(output.stdout) {
+                trace!("got stdout");
+                let result = build_result_parse(display.as_str())?;
+                return build_result_process(result);
+            }
+        }
     }
+    Err(anyhow!(VulnLspError::BuildDependency(
+        "Error generating cargo metadata".to_string()
+    )))
 }
 
 fn build_result_parse(data: &str) -> anyhow::Result<Metadata> {
@@ -140,7 +142,7 @@ fn add_dependencies(node_map: &BTreeMap<String, Node>, collection: &mut Vec<Stri
     let current_node = node_map.get(dep).expect("expected");
     for dep in &current_node.dependencies {
         collection.push(dep.into());
-        add_dependencies(node_map, collection, &dep);
+        add_dependencies(node_map, collection, dep);
     }
 }
 
@@ -209,6 +211,6 @@ mod test {
         let data = include_str!("../../../resources/cargo/output.json");
         let metadata = build_result_parse(data).unwrap();
 
-        let dependencies = build_result_process(metadata).unwrap();
+        let _dependencies = build_result_process(metadata).unwrap();
     }
 }

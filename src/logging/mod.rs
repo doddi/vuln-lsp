@@ -4,7 +4,7 @@ mod logging_file;
 mod logging_otel;
 
 #[derive(Clone, clap::ValueEnum, Debug)]
-pub(crate) enum LogLevel {
+pub enum LogLevel {
     Trace,
     Debug,
     Info,

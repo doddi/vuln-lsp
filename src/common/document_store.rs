@@ -13,11 +13,6 @@ where
     pub inner: Arc<Mutex<HashMap<K, V>>>,
 }
 
-// #[derive(Debug, Clone)]
-// pub struct StorageItems<V> {
-//     pub document: V,
-// }
-
 impl<K, V> DocumentStore<K, V>
 where
     K: Clone + Eq + std::hash::Hash,

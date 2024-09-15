@@ -4,11 +4,13 @@ use crate::common::{BuildDependencies, MetadataDependencies};
 
 use super::{ParseContent, Parser};
 
-pub(crate) struct Maven {}
+pub(crate) struct Maven {
+    direct_only: bool,
+}
 
 impl Maven {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(direct_only: bool) -> Self {
+        Self { direct_only }
     }
 }
 

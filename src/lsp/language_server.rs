@@ -3,19 +3,19 @@ use std::collections::HashMap;
 use reqwest::Url;
 use tower_lsp::{
     lsp_types::{
-        self, CompletionContext, CompletionTriggerKind, Diagnostic, DidChangeTextDocumentParams,
-        DidOpenTextDocumentParams, InitializeParams, InitializeResult, InitializedParams,
-        ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind,
+        self, Diagnostic, DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams,
+        InitializeResult, InitializedParams, ServerCapabilities, ServerInfo,
+        TextDocumentSyncCapability, TextDocumentSyncKind,
     },
     Client, LanguageServer,
 };
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, trace};
 
 use crate::{
-    common::{document_store::DocumentStore, purl::Purl, range::Range},
+    common::{document_store::DocumentStore, purl::Purl},
     lsp::diagnostics,
     parsers::{ParseContent, ParserManager},
-    server::{cacher::Cacher, VulnerabilityServer, VulnerabilityVersionInfo},
+    server::{VulnerabilityServer, VulnerabilityVersionInfo},
 };
 
 pub(crate) struct Backend {
