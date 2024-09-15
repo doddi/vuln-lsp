@@ -4,13 +4,11 @@ use std::collections::HashMap;
 
 use tracing::{error, trace};
 
-use crate::{
-    common::{
-        purl::Purl,
-        range::{Position, Range},
-        MetadataDependencies,
-    },
-    VulnLspError,
+use crate::common::{
+    errors::VulnLspError,
+    purl::Purl,
+    range::{Position, Range},
+    MetadataDependencies,
 };
 
 pub(crate) fn parse_cargo_toml(document: &str) -> anyhow::Result<MetadataDependencies> {

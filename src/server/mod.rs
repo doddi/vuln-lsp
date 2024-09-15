@@ -59,6 +59,8 @@ pub(crate) struct License {
 
 #[async_trait]
 pub(crate) trait VulnerabilityServer: Send + Sync {
+    #[allow(dead_code)]
+    // TODO: This will be required when we add back the completion task
     async fn get_versions_for_purl(&self, purl: Purl) -> anyhow::Result<Vec<Purl>>;
 
     async fn get_component_information(

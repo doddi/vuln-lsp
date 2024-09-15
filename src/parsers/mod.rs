@@ -7,10 +7,7 @@ use maven::Maven;
 use reqwest::Url;
 use tracing::debug;
 
-use crate::{
-    common::{purl::Purl, MetadataDependencies},
-    VulnLspError,
-};
+use crate::common::{errors::VulnLspError, purl::Purl, MetadataDependencies};
 use anyhow::anyhow;
 
 #[derive(Debug, Clone)]

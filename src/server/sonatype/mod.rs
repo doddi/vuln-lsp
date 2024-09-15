@@ -9,7 +9,10 @@ use tokio::sync::Mutex;
 use tracing::{debug, trace, warn};
 
 use super::{Severity, VulnerabilityInformation, VulnerabilityServer, VulnerabilityVersionInfo};
-use crate::{common::purl::Purl, server, VulnLspError};
+use crate::{
+    common::{errors::VulnLspError, purl::Purl},
+    server,
+};
 
 pub(crate) struct Sonatype {
     pub client: reqwest::Client,

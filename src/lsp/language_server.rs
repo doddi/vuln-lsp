@@ -127,7 +127,7 @@ impl Backend {
             trace!("found document for for generating hover");
             for (purl, range) in parsed_content.ranges.iter() {
                 trace!("looking for {} in {:?}", line_number, range);
-                if line_number >= range.start.row && line_number <= range.end.row {
+                if range.contains_position(line_number) {
                     return Some(purl.clone());
                 }
             }

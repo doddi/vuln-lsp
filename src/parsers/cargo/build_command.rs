@@ -1,12 +1,14 @@
+#![allow(dead_code)]
+
 use anyhow::anyhow;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
-use std::process::{Command, ExitStatus};
+use std::process::Command;
 use tracing::trace;
 
+use crate::common::errors::VulnLspError;
 use crate::common::purl::Purl;
 use crate::common::BuildDependencies;
-use crate::VulnLspError;
 
 #[derive(Debug, Deserialize)]
 struct Metadata {

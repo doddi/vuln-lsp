@@ -30,17 +30,16 @@ impl Parser for Cargo {
         // TODO: Add parsing transitives - cant at the moment because it creates
         // too many depenencies for large projects so would need to look at
         // batching the calls to the backend.
-        let transitives;
-        if self.direct_only {
+        let transitives = if self.direct_only {
             trace!("Only considering the direct dependencies");
-            transitives = ranges
+            ranges
                 .clone()
                 .keys()
                 .map(|purl| (purl.clone(), vec![purl.clone()]))
-                .collect();
+                .collect()
         } else {
-            transitives = build_command()?;
-        }
+            build_command()?
+        };
 
         Ok(ParseContent {
             ranges,

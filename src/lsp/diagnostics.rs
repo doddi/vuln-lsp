@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 use tracing::trace;
 
 use crate::{
-    common::{purl::Purl, purl_range::PurlRange},
+    common::purl_range::PurlRange,
     parsers::ParseContent,
     server::{self, VulnerabilityVersionInfo},
 };
@@ -41,8 +41,8 @@ pub fn calculate_diagnostics_for_vulnerabilities(
                         range: range.clone(),
                     };
 
-                    if !vulns.contains_key(&purl_range) {
-                        vulns.insert(purl_range, vec![possible_vulnerability_match]);
+                    if let Entry::Vacant(entry) = vulns.entry(purl_range.clone()) {
+                        entry.insert(vec![possible_vulnerability_match]);
                     } else if let Some(list) = vulns.get_mut(&purl_range) {
                         list.push(possible_vulnerability_match);
                     }
@@ -90,11 +90,6 @@ fn build_diagnostics(vulns: HashMap<PurlRange, Vec<&VulnerabilityVersionInfo>>) 
         })
         .collect();
     diagnostics
-}
-
-fn purls_matches(purl: &Purl, possible_vulnerability_match: &VulnerabilityVersionInfo) -> bool {
-    purl.group_id == possible_vulnerability_match.purl.group_id
-        && purl.artifact_id == possible_vulnerability_match.purl.artifact_id
 }
 
 fn find_highest_severity_vulnerability_from_all(

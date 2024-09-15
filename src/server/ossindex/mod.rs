@@ -1,4 +1,4 @@
-use crate::{common::purl::Purl, VulnLspError};
+use crate::common::{errors::VulnLspError, purl::Purl};
 
 use super::{VulnerabilityInformation, VulnerabilityServer, VulnerabilityVersionInfo};
 use anyhow::anyhow;

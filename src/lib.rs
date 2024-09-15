@@ -1,9 +1,7 @@
 use common::document_store::DocumentStore;
 use lsp::language_server::Backend;
 use parsers::ParserManager;
-use reqwest::Url;
 use server::{VulnerabilityServer, VulnerableServerType};
-use thiserror::Error;
 use tokio::io::{stdin, stdout};
 use tower_lsp::{LspService, Server};
 use tracing::trace;
@@ -13,21 +11,6 @@ pub mod logging;
 mod lsp;
 mod parsers;
 pub mod server;
-
-#[derive(Debug, Error)]
-pub(crate) enum VulnLspError {
-    #[error("Parser not found for {0}")]
-    ParserNotFound(Url),
-    #[error("Error parsing {0}")]
-    ManifestParse(String),
-    #[error("Error generating dependencies {0}")]
-    BuildDependency(String),
-
-    #[error("Error sending {0} request to backend")]
-    ServerRequest(Url),
-    #[error("Error parsing backend response")]
-    ServerParse,
-}
 
 pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
     let server = create_server(&server_type).await;
