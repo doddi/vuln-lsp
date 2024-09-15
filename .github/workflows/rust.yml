@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_FLAGS: "-C debuginfo=0 -D warnings"
 
 jobs:
   test:
@@ -15,7 +16,7 @@ jobs:
     name: test
     steps:
       - uses: actions/checkout@v4
-      - uses: dtonlay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
       - name: Configure cache
         uses: Swatinem/rust-cache@v2
       - name: Run tests
@@ -26,7 +27,7 @@ jobs:
     name: Lint
     steps:
       - uses: actions/checkout@v4
-      - uses: dtonlay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - name: Configure cache
@@ -36,6 +37,7 @@ jobs:
 
   build:
     runs-on: ${{ matrix.runner }}
+    needs: [test, lint]
 
     strategy:
       matrix:
