@@ -12,9 +12,11 @@ pub enum LogLevel {
     Error,
 }
 
-pub fn enable_tracing(log_level: LogLevel, logging_file: String) {
-    #[cfg(feature = "logging-file")]
-    logging_file::create_file_tracer(log_level, logging_file);
-    #[cfg(feature = "logging-otel")]
-    logging_otel::create_otlp_tracer(log_level);
+pub fn enable_tracing(log_level: Option<LogLevel>, logging_file: String) {
+    if let Some(level) = log_level {
+        #[cfg(feature = "logging-file")]
+        logging_file::create_file_tracer(level, logging_file);
+        #[cfg(feature = "logging-otel")]
+        logging_otel::create_otlp_tracer(level);
+    }
 }

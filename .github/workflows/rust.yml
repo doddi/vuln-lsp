@@ -33,7 +33,7 @@ jobs:
       - name: Configure cache
         uses: Swatinem/rust-cache@v2
       - name: Clippy
-        run: cargo clippy
+        run: cargo clippy --features "logging-file"
 
   build:
     runs-on: ${{ matrix.runner }}

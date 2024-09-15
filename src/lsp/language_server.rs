@@ -303,21 +303,14 @@ impl LanguageServer for VulnerabilityLanguageServer {
         let line_number = params.text_document_position_params.position.line;
         let uri = params.text_document_position_params.text_document.uri;
 
-        {
-            let this = &self;
-            let line_number = line_number;
-            async move {
-                trace!("Hovering over line: {}", line_number);
-                if let Some(purl) = this.get_purl_position_in_document(&uri, line_number as usize) {
-                    Ok(Some(lsp_types::Hover {
-                        contents: this.generate_hover_content(purl.clone()).await,
-                        range: None,
-                    }))
-                } else {
-                    Ok(None)
-                }
-            }
+        trace!("Hovering over line: {}", line_number);
+        if let Some(purl) = self.get_purl_position_in_document(&uri, line_number as usize) {
+            Ok(Some(lsp_types::Hover {
+                contents: self.generate_hover_content(purl.clone()).await,
+                range: None,
+            }))
+        } else {
+            Ok(None)
         }
-        .await
     }
 }

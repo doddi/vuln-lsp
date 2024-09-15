@@ -38,9 +38,8 @@ enum ServerType {
 async fn main() {
     let args = Args::parse();
 
-    if let Some(log_level) = args.log_level {
-        enable_tracing(log_level, args.log_file);
-    }
+    #[cfg(feature = "logging")]
+    enable_tracing(args.log_level, args.log_file);
     info!("Starting Vuln Lsp");
 
     let server_type = match args.server {
