@@ -14,3 +14,5 @@ Cargo.lock
 *.pdb
 
 .idea/
+
+clients/vscode/node_modules
