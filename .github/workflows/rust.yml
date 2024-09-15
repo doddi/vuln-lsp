@@ -1,4 +1,4 @@
-name: Vuln-Lsp
+name: VulnLsp
 
 on:
   push:
@@ -42,19 +42,19 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: linux-amd64
+          - name: ${{name}}-linux-amd64
             runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             build: vuln-lsp
-          # - name: win-amd64
+          # - name: ${{name}}-win-amd64
           #   runner: windows-latest
           #   target: x86_64-pc-windows-msvc
           #   build: vuln-lsp.exe
-          # - name: macos-amd64
+          # - name: ${{name}}-macos-amd64
           #   runner: macos-latest
           #   target: x86_64-apple-darwin
           #   build: vuln-lsp
-          # - name: macos-arm64
+          # - name: ${{name}}-macos-arm64
           #   runner: macos-latest
           #   target: aarch64-apple-darwin
           #   build: vuln-lsp
@@ -74,7 +74,7 @@ jobs:
       - name: Build
         run: cargo build --verbose --release --target ${{ matrix.target }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: target/${{ matrix.target }}/release/${{ matrix.build }}
