@@ -24,7 +24,10 @@ pub(crate) fn parse_cargo_toml(document: &str) -> anyhow::Result<MetadataDepende
             });
             Ok(result)
         }
-        Err(err) => Err(anyhow!("Failed to parse Cargo.toml: {}", err)),
+        Err(err) => Err(anyhow!(VulnLspError::ManifestParse(format!(
+            "Failed to parse Cargo.toml: {}",
+            err
+        )))),
     };
 
     parsed

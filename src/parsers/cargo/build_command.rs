@@ -85,7 +85,10 @@ fn build_result_parse(data: &str) -> anyhow::Result<Metadata> {
 
     match result {
         Ok(data) => Ok(data),
-        Err(e) => Err(anyhow!("Unable to parse metadata: {}", e)),
+        Err(err) => Err(anyhow!(VulnLspError::BuildDependency(format!(
+            "Unable to parse metadata: {}",
+            err
+        )))),
     }
 }
 

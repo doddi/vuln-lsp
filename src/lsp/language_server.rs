@@ -18,6 +18,8 @@ use crate::{
     server::{VulnerabilityServer, VulnerabilityVersionInfo},
 };
 
+use super::hover::create_hover_message;
+
 pub(crate) struct Backend {
     client: Client,
     document_store: DocumentStore<Url, String>,
@@ -59,25 +61,8 @@ impl Backend {
             .get_component_information(vec![purl.clone()])
             .await
         {
-            if !component_info.is_empty() {
-                if let Some(vulnerability) = component_info[0]
-                    .find_highest_severity_vulnerability(&component_info[0].vulnerabilities)
-                {
-                    return lsp_types::HoverContents::Markup(lsp_types::MarkupContent {
-                        kind: lsp_types::MarkupKind::Markdown,
-                        value: format!(
-                            r#"{}
-                Severity: {:?}
-                {}
-                {}
-                "#,
-                            component_info[0].purl,
-                            vulnerability.severity,
-                            vulnerability.summary,
-                            vulnerability.detail,
-                        ),
-                    });
-                }
+            if let Some(value) = create_hover_message(component_info) {
+                return value;
             }
         }
 
@@ -96,17 +81,12 @@ impl Backend {
                     let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
                     let dependencies = &flattened_dependencies[..];
 
-                    let unknown_purls = self.get_purls_from_store(dependencies);
+                    let unknown_purls = self.get_purls_from_vuln_store(dependencies);
                     trace!("{} purls are not currently cached", unknown_purls.len());
                     self.fetch_and_cache_vulnerabilities(unknown_purls).await;
 
                     let cached_entries = self.get_items_from_vuln_store(dependencies);
                     let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
-                    trace!("Found {} vulnerabilities", vulnerabilities.len());
-                    for v in &vulnerabilities {
-                        trace!("{}", v.purl);
-                    }
-
                     let diagnostics: Vec<Diagnostic> =
                         diagnostics::calculate_diagnostics_for_vulnerabilities(
                             parsed_content,
@@ -121,7 +101,7 @@ impl Backend {
         }
     }
 
-    fn get_purl_for_position(&self, url: &Url, line_number: usize) -> Option<Purl> {
+    fn get_purl_position_in_document(&self, url: &Url, line_number: usize) -> Option<Purl> {
         trace!("getting document for for generating hover");
         if let Some(parsed_content) = self.parsed_store.get(url) {
             trace!("found document for for generating hover");
@@ -145,11 +125,10 @@ impl Backend {
                 .filter(|v| !v.vulnerabilities.is_empty())
                 .collect::<Vec<_>>();
             self.cache_new_found_values(vulnerabilities);
-            // trace!("New Vulnerabilities cached: {:?}", vulnerabilities);
         }
     }
 
-    fn get_purls_from_store(&self, dependencies: &[Purl]) -> Vec<Purl> {
+    fn get_purls_from_vuln_store(&self, dependencies: &[Purl]) -> Vec<Purl> {
         dependencies
             .iter()
             .filter(|dependency| self.vuln_store.get(dependency).is_none())
@@ -324,14 +303,21 @@ impl LanguageServer for Backend {
         let line_number = params.text_document_position_params.position.line;
         let uri = params.text_document_position_params.text_document.uri;
 
-        trace!("Hovering over line: {}", line_number);
-        if let Some(purl) = self.get_purl_for_position(&uri, line_number as usize) {
-            Ok(Some(lsp_types::Hover {
-                contents: self.generate_hover_content(purl.clone()).await,
-                range: None,
-            }))
-        } else {
-            Ok(None)
+        {
+            let this = &self;
+            let line_number = line_number;
+            async move {
+                trace!("Hovering over line: {}", line_number);
+                if let Some(purl) = this.get_purl_position_in_document(&uri, line_number as usize) {
+                    Ok(Some(lsp_types::Hover {
+                        contents: this.generate_hover_content(purl.clone()).await,
+                        range: None,
+                    }))
+                } else {
+                    Ok(None)
+                }
+            }
         }
+        .await
     }
 }
