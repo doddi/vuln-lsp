@@ -45,7 +45,7 @@ async fn main() {
     let args = Args::parse();
 
     if let Some(log_level) = args.log_level {
-        enable_tracing_support(log_level);
+        enable_tracing_support(log_level, args.log_file);
     }
     info!("Starting Vuln Lsp");
 

@@ -13,6 +13,7 @@ use crate::{
 };
 use anyhow::anyhow;
 
+#[derive(Debug, Clone)]
 pub(crate) struct ParseContent {
     pub ranges: MetadataDependencies,
     pub transitives: HashMap<Purl, Vec<Purl>>,

@@ -31,11 +31,20 @@ pub(crate) enum VulnLspError {
 pub async fn start(server_type: VulnerableServerType) {
     let server = create_server(&server_type).await;
     let document_store = DocumentStore::new();
+    let parsed_store = DocumentStore::new();
+    let vuln_store = DocumentStore::new();
 
     trace!("Starting LSP server using {:?}", server_type);
 
     let (service, socket) = LspService::build(|client| {
-        Backend::new(client, server, document_store, ParserManager::new())
+        Backend::new(
+            client,
+            server,
+            document_store,
+            parsed_store,
+            vuln_store,
+            ParserManager::new(),
+        )
     })
     .finish();
     Server::new(stdin(), stdout(), socket).serve(service).await;

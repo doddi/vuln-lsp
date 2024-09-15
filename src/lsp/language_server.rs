@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use reqwest::Url;
 use tower_lsp::{
     lsp_types::{
@@ -10,18 +12,19 @@ use tower_lsp::{
 use tracing::{debug, info, trace, warn};
 
 use crate::{
-    common::{document_store::DocumentStore, purl::Purl},
+    common::{document_store::DocumentStore, purl::Purl, range::Range},
     lsp::diagnostics,
-    parsers::ParserManager,
+    parsers::{ParseContent, ParserManager},
     server::{cacher::Cacher, VulnerabilityServer, VulnerabilityVersionInfo},
 };
 
 pub(crate) struct Backend {
     client: Client,
     document_store: DocumentStore<Url, String>,
+    parsed_store: DocumentStore<Url, ParseContent>,
     server: Box<dyn VulnerabilityServer>,
     parser_manager: ParserManager,
-    cacher: Cacher<Purl, VulnerabilityVersionInfo>,
+    vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
 }
 
 impl Backend {
@@ -29,78 +32,80 @@ impl Backend {
         client: Client,
         server: Box<dyn VulnerabilityServer>,
         document_store: DocumentStore<Url, String>,
+        parsed_store: DocumentStore<Url, ParseContent>,
+        vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
         parser_manager: ParserManager,
     ) -> Self {
         Backend {
             client,
             document_store,
+            parsed_store,
             server,
             parser_manager,
-            cacher: Cacher::new(),
+            vuln_store,
         }
     }
 
-    fn cache_new_found_values(&self, vulnerabilities: &[VulnerabilityVersionInfo]) {
-        vulnerabilities.iter().for_each(|vulnerability| {
-            self.cacher
-                .put(vulnerability.purl.clone(), vulnerability.clone())
+    fn cache_new_found_values(&self, vulnerabilities: Vec<VulnerabilityVersionInfo>) {
+        vulnerabilities.into_iter().for_each(|vulnerability| {
+            self.vuln_store
+                .insert(&vulnerability.purl.clone(), vulnerability)
         });
     }
 
     async fn generate_hover_content(&self, purl: Purl) -> lsp_types::HoverContents {
-        let component_info = self
+        if let Ok(component_info) = self
             .server
             .get_component_information(vec![purl.clone()])
             .await
-            .unwrap();
-
-        if component_info.is_empty() {
-            return lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(
-                "No information found".to_string(),
-            ));
-        }
-
-        if let Some(vulnerability) = component_info[0]
-            .find_highest_severity_vulnerability(&component_info[0].vulnerabilities)
         {
-            lsp_types::HoverContents::Markup(lsp_types::MarkupContent {
-                kind: lsp_types::MarkupKind::Markdown,
-                value: format!(
-                    r#"{}
+            if !component_info.is_empty() {
+                if let Some(vulnerability) = component_info[0]
+                    .find_highest_severity_vulnerability(&component_info[0].vulnerabilities)
+                {
+                    return lsp_types::HoverContents::Markup(lsp_types::MarkupContent {
+                        kind: lsp_types::MarkupKind::Markdown,
+                        value: format!(
+                            r#"{}
                 Severity: {:?}
                 {}
                 {}
                 "#,
-                    component_info[0].purl,
-                    vulnerability.severity,
-                    vulnerability.summary,
-                    vulnerability.detail,
-                ),
-            })
-        } else {
-            lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(
-                "No information found".to_string(),
-            ))
+                            component_info[0].purl,
+                            vulnerability.severity,
+                            vulnerability.summary,
+                            vulnerability.detail,
+                        ),
+                    });
+                }
+            }
         }
+
+        lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(
+            "No information found".to_string(),
+        ))
     }
 
     async fn update_diagnostics(&self, uri: &Url) {
         if let Some(document) = self.document_store.get(uri) {
             trace!("Updating diagnostics for {}", uri);
             if let Ok(parsed_content) = self.parser_manager.parse(uri, &document) {
-                // TODO: Store the metadata for later use by hover etc
+                self.parsed_store.insert(uri, parsed_content);
+                if let Some(parsed_content) = self.parsed_store.get(uri) {
+                    let vals = parsed_content.transitives.clone().into_values();
+                    let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
+                    let dependencies = &flattened_dependencies[..];
 
-                let vals = parsed_content.transitives.clone().into_values();
-                let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
-                let dependencies = &flattened_dependencies[..];
+                    let unknown_purls = self.get_purls_from_store(dependencies);
+                    trace!("{} purls are not currently cached", unknown_purls.len());
+                    self.fetch_and_cache_vulnerabilities(unknown_purls).await;
 
-                let unknown_purls = self.cacher.find_not_found_keys(dependencies);
-                trace!("{} purls are not currently cached", unknown_purls.len());
-
-                self.fetch_and_cache_vulnerabilities(unknown_purls).await;
-
-                if let Some(cached_entries) = self.cacher.get(dependencies) {
+                    let cached_entries = self.get_items_from_vuln_store(dependencies);
                     let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
+                    trace!("Found {} vulnerabilities", vulnerabilities.len());
+                    for v in &vulnerabilities {
+                        trace!("{}", v.purl);
+                    }
 
                     let diagnostics: Vec<Diagnostic> =
                         diagnostics::calculate_diagnostics_for_vulnerabilities(
@@ -116,6 +121,20 @@ impl Backend {
         }
     }
 
+    fn get_purl_for_position(&self, url: &Url, line_number: usize) -> Option<Purl> {
+        trace!("getting document for for generating hover");
+        if let Some(parsed_content) = self.parsed_store.get(url) {
+            trace!("found document for for generating hover");
+            for (purl, range) in parsed_content.ranges.iter() {
+                trace!("looking for {} in {:?}", line_number, range);
+                if line_number >= range.start.row && line_number <= range.end.row {
+                    return Some(purl.clone());
+                }
+            }
+        }
+        None
+    }
+
     async fn fetch_and_cache_vulnerabilities(&self, purls: Vec<Purl>) {
         if purls.is_empty() {
             debug!("All requested purls found in cache");
@@ -125,9 +144,31 @@ impl Backend {
                 .into_iter()
                 .filter(|v| !v.vulnerabilities.is_empty())
                 .collect::<Vec<_>>();
-            self.cache_new_found_values(&vulnerabilities);
+            self.cache_new_found_values(vulnerabilities);
             // trace!("New Vulnerabilities cached: {:?}", vulnerabilities);
         }
+    }
+
+    fn get_purls_from_store(&self, dependencies: &[Purl]) -> Vec<Purl> {
+        dependencies
+            .iter()
+            .filter(|dependency| self.vuln_store.get(dependency).is_none())
+            .cloned()
+            .collect::<Vec<Purl>>()
+    }
+
+    fn get_items_from_vuln_store(
+        &self,
+        dependencies: &[Purl],
+    ) -> HashMap<Purl, VulnerabilityVersionInfo> {
+        dependencies
+            .iter()
+            .filter(|dependency| self.vuln_store.get(dependency).is_some())
+            .map(|purl| {
+                let vuln = self.vuln_store.get(purl).unwrap();
+                (purl.clone(), vuln)
+            })
+            .collect()
     }
 }
 
@@ -182,10 +223,23 @@ impl LanguageServer for Backend {
         self.update_diagnostics(&uri).await;
     }
 
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        info!("doc changed {}", params.text_document.uri);
+
+        let uri = params.text_document.uri;
+
+        if !params.content_changes.is_empty() {
+            let text_document = params.content_changes[0].text.clone();
+            self.document_store.insert(&uri, text_document);
+        }
+    }
+
     async fn did_save(&self, params: lsp_types::DidSaveTextDocumentParams) {
         info!("doc saved: {}", params.text_document.uri);
 
         let uri = params.text_document.uri;
+        info!("has changes {}", params.text.is_some());
+        info!("about to update diagnostics");
         self.update_diagnostics(&uri).await;
     }
 
@@ -263,26 +317,21 @@ impl LanguageServer for Backend {
     //     }
     // }
 
-    // async fn hover(
-    //     &self,
-    //     params: lsp_types::HoverParams,
-    // ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::Hover>> {
-    //     let line_number = params.text_document_position_params.position.line;
-    //     let uri = params.text_document_position_params.text_document.uri;
-    //
-    //     trace!("Hovering over line: {}", line_number);
-    //     match self
-    //         .document_store
-    //         .get_purl_for_position(&uri, line_number as usize)
-    //     {
-    //         Some(purl) => tower_lsp::jsonrpc::Result::Ok(Some(lsp_types::Hover {
-    //             contents: self.generate_hover_content(purl.clone()).await,
-    //             range: None,
-    //         })),
-    //         None => {
-    //             warn!("No purl found for position");
-    //             tower_lsp::jsonrpc::Result::Err(tower_lsp::jsonrpc::Error::method_not_found())
-    //         }
-    //     }
-    // }
+    async fn hover(
+        &self,
+        params: lsp_types::HoverParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::Hover>> {
+        let line_number = params.text_document_position_params.position.line;
+        let uri = params.text_document_position_params.text_document.uri;
+
+        trace!("Hovering over line: {}", line_number);
+        if let Some(purl) = self.get_purl_for_position(&uri, line_number as usize) {
+            Ok(Some(lsp_types::Hover {
+                contents: self.generate_hover_content(purl.clone()).await,
+                range: None,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
 }
