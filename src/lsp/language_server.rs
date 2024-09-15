@@ -20,16 +20,16 @@ use crate::{
 
 use super::hover::create_hover_message;
 
-pub(crate) struct Backend {
+pub(crate) struct VulnerabilityLanguageServer {
     client: Client,
     document_store: DocumentStore<Url, String>,
     parsed_store: DocumentStore<Url, ParseContent>,
+    vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
     server: Box<dyn VulnerabilityServer>,
     parser_manager: ParserManager,
-    vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
 }
 
-impl Backend {
+impl VulnerabilityLanguageServer {
     pub fn new(
         client: Client,
         server: Box<dyn VulnerabilityServer>,
@@ -38,7 +38,7 @@ impl Backend {
         vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
         parser_manager: ParserManager,
     ) -> Self {
-        Backend {
+        VulnerabilityLanguageServer {
             client,
             document_store,
             parsed_store,
@@ -152,7 +152,7 @@ impl Backend {
 }
 
 #[tower_lsp::async_trait]
-impl LanguageServer for Backend {
+impl LanguageServer for VulnerabilityLanguageServer {
     async fn initialize(
         &self,
         _params: InitializeParams,

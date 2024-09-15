@@ -1,5 +1,5 @@
 use common::document_store::DocumentStore;
-use lsp::language_server::Backend;
+use lsp::language_server::VulnerabilityLanguageServer;
 use parsers::ParserManager;
 use server::{VulnerabilityServer, VulnerableServerType};
 use tokio::io::{stdin, stdout};
@@ -21,7 +21,7 @@ pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
     trace!("Starting LSP server using {:?}", server_type);
 
     let (service, socket) = LspService::build(|client| {
-        Backend::new(
+        VulnerabilityLanguageServer::new(
             client,
             server,
             document_store,
