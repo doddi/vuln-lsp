@@ -3,7 +3,7 @@ use std::fmt::Debug;
 mod logging;
 
 use clap::Parser;
-use logging::enable_tracing_support;
+use logging::{enable_tracing, LogLevel};
 use tracing::info;
 use vuln_lsp::server;
 
@@ -31,21 +31,12 @@ enum ServerType {
     Sonatype,
 }
 
-#[derive(Clone, clap::ValueEnum, Debug)]
-pub(crate) enum LogLevel {
-    Trace,
-    Debug,
-    Info,
-    Warn,
-    Error,
-}
-
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
 
     if let Some(log_level) = args.log_level {
-        enable_tracing_support(log_level, args.log_file);
+        enable_tracing(log_level, args.log_file);
     }
     info!("Starting Vuln Lsp");
 

@@ -9,6 +9,7 @@ use tower_lsp::{LspService, Server};
 use tracing::trace;
 
 pub(crate) mod common;
+pub mod logging;
 mod lsp;
 mod parsers;
 pub mod server;
