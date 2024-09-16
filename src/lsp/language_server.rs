@@ -1,5 +1,8 @@
+use crate::{common::errors::VulnLspError, lsp::progress::NotificationLevel};
+use anyhow::anyhow;
 use std::collections::HashMap;
 
+use futures::future;
 use reqwest::Url;
 use tower_lsp::{
     lsp_types::{
@@ -18,7 +21,7 @@ use crate::{
     server::{VulnerabilityServer, VulnerabilityVersionInfo},
 };
 
-use super::hover::create_hover_message;
+use super::{hover::create_hover_message, progress::ProgressNotifier};
 
 pub(crate) struct VulnerabilityLanguageServer {
     client: Client,
@@ -27,6 +30,7 @@ pub(crate) struct VulnerabilityLanguageServer {
     vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
     server: Box<dyn VulnerabilityServer>,
     parser_manager: ParserManager,
+    progress_notifier: ProgressNotifier,
 }
 
 impl VulnerabilityLanguageServer {
@@ -37,6 +41,7 @@ impl VulnerabilityLanguageServer {
         parsed_store: DocumentStore<Url, ParseContent>,
         vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
         parser_manager: ParserManager,
+        progress_notifier: ProgressNotifier,
     ) -> Self {
         VulnerabilityLanguageServer {
             client: client.clone(),
@@ -45,6 +50,7 @@ impl VulnerabilityLanguageServer {
             server,
             parser_manager,
             vuln_store,
+            progress_notifier,
         }
     }
 
@@ -56,11 +62,7 @@ impl VulnerabilityLanguageServer {
     }
 
     async fn generate_hover_content(&self, purl: Purl) -> lsp_types::HoverContents {
-        if let Ok(component_info) = self
-            .server
-            .get_component_information(vec![purl.clone()])
-            .await
-        {
+        if let Ok(component_info) = self.server.get_component_information(&[purl]).await {
             if let Some(value) = create_hover_message(component_info) {
                 return value;
             }
@@ -83,7 +85,8 @@ impl VulnerabilityLanguageServer {
 
                     let unknown_purls = self.get_purls_from_vuln_store(dependencies);
                     trace!("{} purls are not currently cached", unknown_purls.len());
-                    self.fetch_and_cache_vulnerabilities(unknown_purls).await;
+
+                    self.fetch_and_cache_vulnerabilities(&unknown_purls).await;
 
                     let cached_entries = self.get_items_from_vuln_store(dependencies);
                     let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
@@ -115,10 +118,31 @@ impl VulnerabilityLanguageServer {
         None
     }
 
-    async fn fetch_and_cache_vulnerabilities(&self, purls: Vec<Purl>) {
+    async fn batch(&self, purls: &[Purl]) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
+        const BATCH_SIZE: usize = 100;
+        let chunks = purls.chunks(BATCH_SIZE);
+        info!("Request is split into {} chunks", chunks.len());
+
+        // TODO: How can I keep a counter updated?
+        let joins = chunks
+            .into_iter()
+            .map(|chunk| self.server.get_component_information(chunk));
+
+        match future::try_join_all(joins.into_iter()).await {
+            Ok(results) => Ok(results
+                .into_iter()
+                .flatten()
+                .collect::<Vec<VulnerabilityVersionInfo>>()),
+            Err(_err) => Err(anyhow!(VulnLspError::ServerError(
+                "Error requesting batches".to_string()
+            ))),
+        }
+    }
+
+    async fn fetch_and_cache_vulnerabilities(&self, purls: &[Purl]) {
         if purls.is_empty() {
             debug!("All requested purls found in cache");
-        } else if let Ok(vulnerabilities) = self.server.get_component_information(purls).await {
+        } else if let Ok(vulnerabilities) = self.batch(purls).await {
             // Filter out any responses that have empty vulnerability information
             let vulnerabilities = vulnerabilities
                 .into_iter()

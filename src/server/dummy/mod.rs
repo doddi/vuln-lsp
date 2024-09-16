@@ -21,7 +21,7 @@ impl VulnerabilityServer for Dummy {
 
     async fn get_component_information(
         &self,
-        purls: Vec<Purl>,
+        purls: &[Purl],
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         let response = purls
             .iter()

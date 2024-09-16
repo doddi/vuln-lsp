@@ -21,7 +21,7 @@ pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
 
     let (service, socket) = LspService::build(|client| {
         let progress_notifier = ProgressNotifier::new(client.clone());
-        let server = create_server(&server_type, progress_notifier);
+        let server = create_server(&server_type, progress_notifier.clone());
         VulnerabilityLanguageServer::new(
             client,
             server,
@@ -29,6 +29,7 @@ pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
             parsed_store,
             vuln_store,
             ParserManager::new(direct_only),
+            progress_notifier,
         )
     })
     .finish();

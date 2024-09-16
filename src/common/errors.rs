@@ -14,4 +14,6 @@ pub(crate) enum VulnLspError {
     ServerRequest(Url),
     #[error("Error parsing backend response")]
     ServerParse,
+    #[error("Server error {0}")]
+    ServerError(String),
 }

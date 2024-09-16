@@ -65,6 +65,6 @@ pub(crate) trait VulnerabilityServer: Send + Sync {
 
     async fn get_component_information(
         &self,
-        purls: Vec<Purl>,
+        purls: &[Purl],
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>>;
 }

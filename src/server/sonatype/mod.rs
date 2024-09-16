@@ -45,12 +45,12 @@ impl Sonatype {
 
     async fn do_get_component_information(
         &self,
-        purls: Vec<Purl>,
+        purls: &[Purl],
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         trace!("Getting component information for {:?}", purls);
 
         self.progress_notifier
-            .send(ProgressNotifierState::Start(
+            .send_progress(ProgressNotifierState::Start(
                 "Sonatype".to_string(),
                 "Sonatype".to_string(),
                 Some("building...".to_string()),
@@ -59,9 +59,11 @@ impl Sonatype {
 
         let component_details_request = ComponentDetailsRequest {
             components: purls
-                .into_iter()
+                .iter()
                 .map(|purl| WrappedComponentDetailRequest {
-                    inner: WrappedPurl { package_url: purl },
+                    inner: WrappedPurl {
+                        package_url: purl.clone(),
+                    },
                 })
                 .collect(),
         };
@@ -73,7 +75,7 @@ impl Sonatype {
         let url: Url = request.clone().into();
 
         self.progress_notifier
-            .send(ProgressNotifierState::Update(
+            .send_progress(ProgressNotifierState::Update(
                 "Sonatype".to_string(),
                 None,
                 0,
@@ -84,7 +86,7 @@ impl Sonatype {
             .basic_auth(self.username, Some(self.password));
 
         self.progress_notifier
-            .send(ProgressNotifierState::Update(
+            .send_progress(ProgressNotifierState::Update(
                 "Sonatype".to_string(),
                 None,
                 25,
@@ -96,7 +98,7 @@ impl Sonatype {
             Ok(response) => match response.json::<ComponentDetailsResponse>().await {
                 Ok(component_details) => {
                     self.progress_notifier
-                        .send(ProgressNotifierState::Complete("Sonatype".to_string()))
+                        .send_progress(ProgressNotifierState::Complete("Sonatype".to_string()))
                         .await;
 
                     trace!("component details {:?}", component_details);
@@ -110,7 +112,7 @@ impl Sonatype {
                 }
                 Err(err) => {
                     self.progress_notifier
-                        .send(ProgressNotifierState::Complete("Sonatype".to_string()))
+                        .send_progress(ProgressNotifierState::Complete("Sonatype".to_string()))
                         .await;
                     warn!("Component Details response error {}", err);
                     Err(anyhow!(VulnLspError::ServerParse))
@@ -118,7 +120,7 @@ impl Sonatype {
             },
             Err(err) => {
                 self.progress_notifier
-                    .send(ProgressNotifierState::Complete("Sonatype".to_string()))
+                    .send_progress(ProgressNotifierState::Complete("Sonatype".to_string()))
                     .await;
                 warn!("Component Details response error: {err}");
                 Err(anyhow!(VulnLspError::ServerRequest(url)))
@@ -230,7 +232,7 @@ impl VulnerabilityServer for Sonatype {
 
     async fn get_component_information(
         &self,
-        purls: Vec<Purl>,
+        purls: &[Purl],
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         self.do_get_component_information(purls).await
     }

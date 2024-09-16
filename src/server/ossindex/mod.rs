@@ -25,13 +25,13 @@ impl OssIndex {
 
     async fn do_get_component_information(
         &self,
-        purls: Vec<Purl>,
+        purls: &[Purl],
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         trace!("getting component information from ossindex");
 
         let _ = self
             .progress_notifier
-            .send(ProgressNotifierState::Start(
+            .send_progress(ProgressNotifierState::Start(
                 "OssIndex".to_string(),
                 "OssIndex".to_string(),
                 Some("building...".to_string()),
@@ -66,7 +66,7 @@ impl OssIndex {
                 trace!("response: {:?}", response);
                 let _ = self
                     .progress_notifier
-                    .send(ProgressNotifierState::Update(
+                    .send_progress(ProgressNotifierState::Update(
                         "OssIndex".to_string(),
                         None,
                         50,
@@ -79,14 +79,16 @@ impl OssIndex {
                         let data = payload
                             .into_iter()
                             .map(|component_report| {
-                                let purl = match_against_purl(
+                                let purl = match match_against_purl(
                                     component_report.coordinates.clone(),
-                                    purls.clone(),
-                                )
-                                .unwrap_or_else(|| component_report.coordinates.clone())
-                                .clone();
+                                    purls,
+                                ) {
+                                    Some(purl) => purl,
+                                    None => &component_report.coordinates,
+                                };
+
                                 ComponentReport {
-                                    coordinates: purl,
+                                    coordinates: purl.clone(),
                                     ..component_report
                                 }
                                 .into()
@@ -94,7 +96,7 @@ impl OssIndex {
                             .collect();
                         let _ = self
                             .progress_notifier
-                            .send(ProgressNotifierState::Complete("OssIndex".to_string()))
+                            .send_progress(ProgressNotifierState::Complete("OssIndex".to_string()))
                             .await;
 
                         anyhow::Ok(data)
@@ -102,7 +104,7 @@ impl OssIndex {
                     Err(err) => {
                         let _ = self
                             .progress_notifier
-                            .send(ProgressNotifierState::Complete("OssIndex".to_string()))
+                            .send_progress(ProgressNotifierState::Complete("OssIndex".to_string()))
                             .await;
 
                         warn!("error parsing response from ossindex: {}", err);
@@ -113,7 +115,7 @@ impl OssIndex {
             Err(err) => {
                 let _ = self
                     .progress_notifier
-                    .send(ProgressNotifierState::Complete("OssIndex".to_string()))
+                    .send_progress(ProgressNotifierState::Complete("OssIndex".to_string()))
                     .await;
 
                 warn!("error sending request to ossindex: {}", err);
@@ -123,8 +125,8 @@ impl OssIndex {
     }
 }
 
-fn match_against_purl(oss_index_purl: Purl, original_purls: Vec<Purl>) -> Option<Purl> {
-    original_purls.into_iter().find(|purl| {
+fn match_against_purl(oss_index_purl: Purl, original_purls: &[Purl]) -> Option<&Purl> {
+    original_purls.iter().find(|purl| {
         oss_index_purl.package == purl.package
             && oss_index_purl.group_id == purl.group_id
             && oss_index_purl.artifact_id == purl.artifact_id
@@ -235,7 +237,7 @@ struct Version {
 impl VulnerabilityServer for OssIndex {
     async fn get_component_information(
         &self,
-        purls: Vec<Purl>,
+        purls: &[Purl],
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         self.do_get_component_information(purls).await
     }
