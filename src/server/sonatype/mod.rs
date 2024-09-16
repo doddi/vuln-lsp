@@ -5,12 +5,13 @@ use core::panic;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::{debug, trace, warn};
 
 use super::{Severity, VulnerabilityInformation, VulnerabilityServer, VulnerabilityVersionInfo};
 use crate::{
     common::{errors::VulnLspError, purl::Purl},
+    lsp::progress::{ProgressNotifier, ProgressNotifierState},
     server,
 };
 
@@ -22,10 +23,11 @@ pub(crate) struct Sonatype {
     // TODO: Must do better
     username: &'static str,
     password: &'static str,
+    progress_notifier: ProgressNotifier,
 }
 
 impl Sonatype {
-    pub async fn new(base_url: String) -> Self {
+    pub fn new(base_url: String, progress_notifier: ProgressNotifier) -> Self {
         debug!("Sonatype server created, {base_url}");
 
         let username = "admin";
@@ -37,6 +39,7 @@ impl Sonatype {
             base_url,
             username,
             password,
+            progress_notifier,
         }
     }
 
@@ -45,6 +48,15 @@ impl Sonatype {
         purls: Vec<Purl>,
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         trace!("Getting component information for {:?}", purls);
+
+        self.progress_notifier
+            .send(ProgressNotifierState::Start(
+                "Sonatype".to_string(),
+                "Sonatype".to_string(),
+                Some("building...".to_string()),
+            ))
+            .await;
+
         let component_details_request = ComponentDetailsRequest {
             components: purls
                 .into_iter()
@@ -60,13 +72,33 @@ impl Sonatype {
         );
         let url: Url = request.clone().into();
 
+        self.progress_notifier
+            .send(ProgressNotifierState::Update(
+                "Sonatype".to_string(),
+                None,
+                0,
+            ))
+            .await;
+
         let builder = reqwest::Client::request(&self.client, reqwest::Method::POST, url.clone())
             .basic_auth(self.username, Some(self.password));
+
+        self.progress_notifier
+            .send(ProgressNotifierState::Update(
+                "Sonatype".to_string(),
+                None,
+                25,
+            ))
+            .await;
 
         // trace!("about to send {:?} to {:?}", request, url);
         match builder.json(&request).send().await {
             Ok(response) => match response.json::<ComponentDetailsResponse>().await {
                 Ok(component_details) => {
+                    self.progress_notifier
+                        .send(ProgressNotifierState::Complete("Sonatype".to_string()))
+                        .await;
+
                     trace!("component details {:?}", component_details);
                     anyhow::Ok(
                         component_details
@@ -77,11 +109,17 @@ impl Sonatype {
                     )
                 }
                 Err(err) => {
+                    self.progress_notifier
+                        .send(ProgressNotifierState::Complete("Sonatype".to_string()))
+                        .await;
                     warn!("Component Details response error {}", err);
                     Err(anyhow!(VulnLspError::ServerParse))
                 }
             },
             Err(err) => {
+                self.progress_notifier
+                    .send(ProgressNotifierState::Complete("Sonatype".to_string()))
+                    .await;
                 warn!("Component Details response error: {err}");
                 Err(anyhow!(VulnLspError::ServerRequest(url)))
             }

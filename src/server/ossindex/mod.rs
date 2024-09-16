@@ -1,4 +1,7 @@
-use crate::common::{errors::VulnLspError, purl::Purl};
+use crate::{
+    common::{errors::VulnLspError, purl::Purl},
+    lsp::progress::{ProgressNotifier, ProgressNotifierState},
+};
 
 use super::{VulnerabilityInformation, VulnerabilityServer, VulnerabilityVersionInfo};
 use anyhow::anyhow;
@@ -9,12 +12,14 @@ use tracing::{debug, trace, warn};
 
 pub(crate) struct OssIndex {
     pub client: reqwest::Client,
+    progress_notifier: ProgressNotifier,
 }
 
 impl OssIndex {
-    pub fn new() -> Self {
+    pub fn new(progress_notifier: ProgressNotifier) -> Self {
         Self {
             client: reqwest::Client::new(),
+            progress_notifier,
         }
     }
 
@@ -23,6 +28,16 @@ impl OssIndex {
         purls: Vec<Purl>,
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         trace!("getting component information from ossindex");
+
+        let _ = self
+            .progress_notifier
+            .send(ProgressNotifierState::Start(
+                "OssIndex".to_string(),
+                "OssIndex".to_string(),
+                Some("building...".to_string()),
+            ))
+            .await;
+
         // OssIndex does not like any qualifiers being specified so removed them
         let oss_purls = purls
             .iter()
@@ -49,6 +64,15 @@ impl OssIndex {
                 debug!("response received from OssIndex *");
 
                 trace!("response: {:?}", response);
+                let _ = self
+                    .progress_notifier
+                    .send(ProgressNotifierState::Update(
+                        "OssIndex".to_string(),
+                        None,
+                        50,
+                    ))
+                    .await;
+
                 match response.json::<Vec<ComponentReport>>().await {
                     Ok(payload) => {
                         trace!("payload: {:?}", payload);
@@ -68,15 +92,30 @@ impl OssIndex {
                                 .into()
                             })
                             .collect();
+                        let _ = self
+                            .progress_notifier
+                            .send(ProgressNotifierState::Complete("OssIndex".to_string()))
+                            .await;
+
                         anyhow::Ok(data)
                     }
                     Err(err) => {
+                        let _ = self
+                            .progress_notifier
+                            .send(ProgressNotifierState::Complete("OssIndex".to_string()))
+                            .await;
+
                         warn!("error parsing response from ossindex: {}", err);
                         Err(anyhow!(VulnLspError::ServerParse))
                     }
                 }
             }
             Err(err) => {
+                let _ = self
+                    .progress_notifier
+                    .send(ProgressNotifierState::Complete("OssIndex".to_string()))
+                    .await;
+
                 warn!("error sending request to ossindex: {}", err);
                 Err(anyhow!(VulnLspError::ServerRequest(request.into())))
             }

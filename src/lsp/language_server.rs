@@ -39,7 +39,7 @@ impl VulnerabilityLanguageServer {
         parser_manager: ParserManager,
     ) -> Self {
         VulnerabilityLanguageServer {
-            client,
+            client: client.clone(),
             document_store,
             parsed_store,
             server,

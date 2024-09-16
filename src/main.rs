@@ -3,6 +3,7 @@ use std::fmt::Debug;
 mod logging;
 
 use clap::{ArgAction, Parser};
+#[cfg(feature = "logging")]
 use logging::{enable_tracing, LogLevel};
 use tracing::info;
 use vuln_lsp::server;
@@ -20,8 +21,11 @@ struct Args {
     #[clap(short, long)]
     base_url: Option<String>,
 
+    #[cfg(feature = "logging")]
     #[clap(short, long)]
     log_level: Option<LogLevel>,
+
+    #[cfg(feature = "logging")]
     #[clap(short = 'f', long, default_value = "/tmp/trace.log")]
     log_file: String,
 }

@@ -12,6 +12,7 @@ pub enum LogLevel {
     Error,
 }
 
+#[cfg(feature = "logging")]
 pub fn enable_tracing(log_level: Option<LogLevel>, logging_file: String) {
     if let Some(level) = log_level {
         #[cfg(feature = "logging-file")]

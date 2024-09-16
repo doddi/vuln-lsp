@@ -1,5 +1,5 @@
 use common::document_store::DocumentStore;
-use lsp::language_server::VulnerabilityLanguageServer;
+use lsp::{language_server::VulnerabilityLanguageServer, progress::ProgressNotifier};
 use parsers::ParserManager;
 use server::{VulnerabilityServer, VulnerableServerType};
 use tokio::io::{stdin, stdout};
@@ -13,7 +13,6 @@ mod parsers;
 pub mod server;
 
 pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
-    let server = create_server(&server_type).await;
     let document_store = DocumentStore::new();
     let parsed_store = DocumentStore::new();
     let vuln_store = DocumentStore::new();
@@ -21,6 +20,8 @@ pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
     trace!("Starting LSP server using {:?}", server_type);
 
     let (service, socket) = LspService::build(|client| {
+        let progress_notifier = ProgressNotifier::new(client.clone());
+        let server = create_server(&server_type, progress_notifier);
         VulnerabilityLanguageServer::new(
             client,
             server,
@@ -34,12 +35,18 @@ pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
     Server::new(stdin(), stdout(), socket).serve(service).await;
 }
 
-async fn create_server(server_type: &VulnerableServerType) -> Box<dyn VulnerabilityServer> {
+fn create_server(
+    server_type: &VulnerableServerType,
+    progress_notifier: ProgressNotifier,
+) -> Box<dyn VulnerabilityServer> {
     match server_type {
         VulnerableServerType::Dummy => Box::new(server::dummy::Dummy {}),
-        VulnerableServerType::OssIndex => Box::new(server::ossindex::OssIndex::new()),
-        VulnerableServerType::Sonatype { base_url } => {
-            Box::new(server::sonatype::Sonatype::new(base_url.to_owned()).await)
+        VulnerableServerType::OssIndex => {
+            Box::new(server::ossindex::OssIndex::new(progress_notifier))
         }
+        VulnerableServerType::Sonatype { base_url } => Box::new(server::sonatype::Sonatype::new(
+            base_url.to_owned(),
+            progress_notifier,
+        )),
     }
 }
