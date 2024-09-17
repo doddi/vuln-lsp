@@ -1,14 +1,22 @@
+mod dep_tree;
 mod pom;
 
-use crate::common::{BuildDependencies, MetadataDependencies};
+use dep_tree::build_dependency_list_from_command;
+use tracing::trace;
+
+use crate::common::MetadataDependencies;
 
 use super::{ParseContent, Parser};
 
-pub(crate) struct Maven {}
+pub(crate) struct Maven {
+    include_transitives: bool,
+}
 
 impl Maven {
-    pub fn new(_direct_only: bool) -> Self {
-        Self {}
+    pub fn new(include_transitives: bool) -> Self {
+        Self {
+            include_transitives,
+        }
     }
 }
 
@@ -18,17 +26,21 @@ impl Parser for Maven {
     }
 
     fn parse(&self, document: &str) -> anyhow::Result<ParseContent> {
-        let purls: MetadataDependencies = pom::determine_dependencies_with_range(document);
+        let ranges: MetadataDependencies = pom::determine_dependencies_with_range(document);
 
-        // TODO: Use a maven command to determine all dependencies including transitives
-        let transitives: BuildDependencies = purls
-            .clone()
-            .keys()
-            .map(|purl| (purl.clone(), vec![purl.clone()]))
-            .collect();
+        let transitives = if !self.include_transitives {
+            trace!("Only considering the direct dependencies");
+            ranges
+                .clone()
+                .keys()
+                .map(|purl| (purl.clone(), vec![purl.clone()]))
+                .collect()
+        } else {
+            build_dependency_list_from_command()?
+        };
 
         let content = ParseContent {
-            ranges: purls,
+            ranges,
             transitives,
         };
         Ok(content)

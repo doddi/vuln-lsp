@@ -9,12 +9,14 @@ use tracing::{debug, trace};
 use super::{ParseContent, Parser};
 
 pub(super) struct Cargo {
-    direct_only: bool,
+    include_transitives: bool,
 }
 
 impl Cargo {
-    pub(crate) fn new(direct_only: bool) -> Self {
-        Self { direct_only }
+    pub(crate) fn new(include_transitives: bool) -> Self {
+        Self {
+            include_transitives,
+        }
     }
 }
 
@@ -27,10 +29,7 @@ impl Parser for Cargo {
         debug!("Parsing Cargo.toml");
 
         let ranges: MetadataDependencies = parse_cargo_toml(document)?;
-        // TODO: Add parsing transitives - cant at the moment because it creates
-        // too many depenencies for large projects so would need to look at
-        // batching the calls to the backend.
-        let transitives = if self.direct_only {
+        let transitives = if !self.include_transitives {
             trace!("Only considering the direct dependencies");
             ranges
                 .clone()

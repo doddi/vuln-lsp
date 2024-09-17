@@ -6,7 +6,6 @@ use tower_lsp::{
     },
     Client,
 };
-use tracing::trace;
 
 #[derive(Clone)]
 pub(crate) struct ProgressNotifier {
@@ -16,11 +15,14 @@ pub(crate) struct ProgressNotifier {
 #[derive(Debug)]
 pub(crate) enum ProgressType {
     Progress(ProgressNotifierState),
+    #[allow(dead_code)]
     Notification(NotificationLevel, String),
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) enum NotificationLevel {
+    Log,
     Info,
     Warn,
     Error,
@@ -54,6 +56,8 @@ impl ProgressNotifier {
         Self { tx }
     }
 
+    //TODO: Dead code for now because not getting used
+    #[allow(dead_code)]
     pub(crate) async fn send_notification(&self, level: NotificationLevel, message: String) {
         let _ = self
             .tx
@@ -71,6 +75,7 @@ async fn handle_notification(client: &Client, level: NotificationLevel, message:
         NotificationLevel::Info => MessageType::INFO,
         NotificationLevel::Warn => MessageType::WARNING,
         NotificationLevel::Error => MessageType::ERROR,
+        NotificationLevel::Log => MessageType::LOG,
     };
     client.show_message(level, message).await;
 }

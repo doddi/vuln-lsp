@@ -1,4 +1,4 @@
-use crate::{common::errors::VulnLspError, lsp::progress::NotificationLevel};
+use crate::common::errors::VulnLspError;
 use anyhow::anyhow;
 use std::collections::HashMap;
 
@@ -30,6 +30,7 @@ pub(crate) struct VulnerabilityLanguageServer {
     vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
     server: Box<dyn VulnerabilityServer>,
     parser_manager: ParserManager,
+    #[allow(dead_code)]
     progress_notifier: ProgressNotifier,
 }
 

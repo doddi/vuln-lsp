@@ -8,9 +8,9 @@ Once built, ensure that the `vuln-lsp` binary is in your `$PATH`.
 
 ### Backend Service
 
-The LSP can fetch data from either a `dummy` backend or from [OssIndex(https://ossindex.sonatype.org/)].
-`dummy` is the default setting.
-To enable OssIndex simply add the `oss-index` command line argument.
+The LSP can fetch data from either a `dummy` backend, [OssIndex](https://ossindex.sonatype.org/)
+or a [Sonatype Lifecycle](https://www.sonatype.com/products/open-source-security-dependency-management)
+`OssIndex` is the default setting.
 
 ### Logging
 
@@ -22,6 +22,23 @@ arguments where `<level>` is any of the following:
 - `info`
 - `debug`
 - `trace`
+
+### Transitive dependency scanning
+
+By default the LSP will only scan the direct dependencies found in the project.
+For a more thorough scan, run the LSP with the `-i` to include all the known
+transitive dependency. This feature is currently experimental.
+
+### Tracing
+
+Tracing can be enable to either write to a file or using OpenTelemetry. The LSP
+has to be built with either the `logging-file` or `logging-otel` feature.
+
+## Limitations
+
+At the moment the metadata scanning is basic and anything more than a typical
+pom.xml (even dependency management is not working at the moment) will fail to
+detect artifacts correctly.
 
 ## Editors
 
@@ -89,3 +106,9 @@ Run the debugger and open the provided `test.anat` file to test the lsp.
 ![intellij](./docs/vuln_intellij.gif)
 
 ## Features
+
+- Direct dependency scanning
+- Optionally scan transitive dependencies
+- Tracing support with OpenTelemetry
+- Basic Maven support
+- Basic Cargo support

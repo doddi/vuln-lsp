@@ -12,7 +12,7 @@ mod lsp;
 mod parsers;
 pub mod server;
 
-pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
+pub async fn start(server_type: VulnerableServerType, include_transitives: bool) {
     let document_store = DocumentStore::new();
     let parsed_store = DocumentStore::new();
     let vuln_store = DocumentStore::new();
@@ -28,7 +28,7 @@ pub async fn start(server_type: VulnerableServerType, direct_only: bool) {
             document_store,
             parsed_store,
             vuln_store,
-            ParserManager::new(direct_only),
+            ParserManager::new(include_transitives),
             progress_notifier,
         )
     })

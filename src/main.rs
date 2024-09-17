@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 mod logging;
 
-use clap::{ArgAction, Parser};
+use clap::Parser;
 #[cfg(feature = "logging")]
 use logging::{enable_tracing, LogLevel};
 use tracing::info;
@@ -14,8 +14,8 @@ struct Args {
     #[clap(short, long, default_value = "oss-index")]
     server: ServerType,
 
-    #[clap(short, long, action=ArgAction::SetFalse)]
-    direct_only: bool,
+    #[clap(short, long)]
+    include_transitives: bool,
 
     /// The base url of a Nexus Lifecycle server, only used when using `Sonatype` server
     #[clap(short, long)]
@@ -57,8 +57,8 @@ async fn main() {
         },
     };
     info!(
-        "Starting vuln-lsp connecting to: {:?} direct parsing: {}",
-        server_type, args.direct_only
+        "Starting vuln-lsp connecting to: {:?} include transistive parsing: {}",
+        server_type, args.include_transitives
     );
-    vuln_lsp::start(server_type, args.direct_only).await;
+    vuln_lsp::start(server_type, args.include_transitives).await;
 }

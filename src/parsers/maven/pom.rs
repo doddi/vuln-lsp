@@ -113,8 +113,6 @@ fn extract_dependency(
 
 #[cfg(test)]
 mod test {
-    use std::fs::read_to_string;
-
     use super::*;
 
     #[test]
@@ -153,9 +151,9 @@ mod test {
 
     #[test]
     fn test_extract_dependencies() {
-        let doc = read_to_string("src/parsers/maven/docs/pom.xml").unwrap();
+        let doc = include_str!("../../../resources/maven/pom.xml");
 
-        let response = determine_dependencies_with_range(doc.as_str());
+        let response = determine_dependencies_with_range(doc);
         assert!(!response.is_empty());
         assert_eq!(response.len(), 3);
 

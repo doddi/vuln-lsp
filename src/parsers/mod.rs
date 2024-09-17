@@ -26,10 +26,10 @@ pub struct ParserManager {
 }
 
 impl ParserManager {
-    pub fn new(direct_only: bool) -> Self {
+    pub fn new(include_transitives: bool) -> Self {
         let parsers = vec![
-            Box::new(Cargo::new(direct_only)) as Box<dyn Parser>,
-            Box::new(Maven::new(direct_only)) as Box<dyn Parser>,
+            Box::new(Cargo::new(include_transitives)) as Box<dyn Parser>,
+            Box::new(Maven::new(include_transitives)) as Box<dyn Parser>,
         ];
 
         Self { parsers }
