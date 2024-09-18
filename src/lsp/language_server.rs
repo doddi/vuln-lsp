@@ -1,9 +1,8 @@
 use crate::common::errors::VulnLspError;
 use anyhow::anyhow;
-use std::collections::HashMap;
-
 use futures::future;
 use reqwest::Url;
+use std::collections::HashMap;
 use tower_lsp::{
     lsp_types::{
         self, Diagnostic, DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams,
@@ -74,34 +73,44 @@ impl VulnerabilityLanguageServer {
         ))
     }
 
-    async fn update_diagnostics(&self, uri: &Url) {
+    async fn check_dependencies(&self, uri: &Url) -> anyhow::Result<bool> {
         if let Some(document) = self.document_store.get(uri) {
             trace!("Updating diagnostics for {}", uri);
-            if let Ok(parsed_content) = self.parser_manager.parse(uri, &document) {
-                self.parsed_store.insert(uri, parsed_content);
-                if let Some(parsed_content) = self.parsed_store.get(uri) {
-                    let vals = parsed_content.transitives.clone().into_values();
-                    let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
-                    let dependencies = &flattened_dependencies[..];
 
-                    let unknown_purls = self.get_purls_from_vuln_store(dependencies);
-                    trace!("{} purls are not currently cached", unknown_purls.len());
+            let parsed_content = self.parser_manager.parse(uri, &document)?;
+            self.parsed_store.insert(uri, parsed_content);
+            if let Some(parsed_content) = self.parsed_store.get(uri) {
+                let vals = parsed_content.transitives.clone().into_values();
+                let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
+                let dependencies = &flattened_dependencies[..];
 
-                    self.fetch_and_cache_vulnerabilities(&unknown_purls).await;
+                let unknown_purls = self.get_purls_from_vuln_store(dependencies);
+                trace!("{} purls are not currently cached", unknown_purls.len());
 
-                    let cached_entries = self.get_items_from_vuln_store(dependencies);
-                    let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
-                    let diagnostics: Vec<Diagnostic> =
-                        diagnostics::calculate_diagnostics_for_vulnerabilities(
-                            parsed_content,
-                            vulnerabilities,
-                        );
-                    trace!("Diagnostics: {:?}", diagnostics);
-                    self.client
-                        .publish_diagnostics(uri.clone(), diagnostics, None)
-                        .await;
-                }
+                self.fetch_and_cache_vulnerabilities(&unknown_purls).await;
+                return Ok(true);
             }
+        }
+        Ok(false)
+    }
+
+    async fn update_diagnostics(&self, uri: &Url) {
+        if let Some(parsed_content) = self.parsed_store.get(uri) {
+            let vals = parsed_content.transitives.clone().into_values();
+            let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
+            let dependencies = &flattened_dependencies[..];
+
+            let cached_entries = self.get_items_from_vuln_store(dependencies);
+            let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
+            let diagnostics: Vec<Diagnostic> =
+                diagnostics::calculate_diagnostics_for_vulnerabilities(
+                    parsed_content,
+                    vulnerabilities,
+                );
+            trace!("Diagnostics: {:?}", diagnostics);
+            self.client
+                .publish_diagnostics(uri.clone(), diagnostics, None)
+                .await;
         }
     }
 
@@ -224,7 +233,11 @@ impl LanguageServer for VulnerabilityLanguageServer {
         let text_document = params.text_document.text;
 
         self.document_store.insert(&uri, text_document);
-        self.update_diagnostics(&uri).await;
+        if let Ok(result) = self.check_dependencies(&uri).await {
+            if result {
+                self.update_diagnostics(&uri).await;
+            }
+        }
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -244,7 +257,11 @@ impl LanguageServer for VulnerabilityLanguageServer {
         let uri = params.text_document.uri;
         info!("has changes {}", params.text.is_some());
         info!("about to update diagnostics");
-        self.update_diagnostics(&uri).await;
+        if let Ok(result) = self.check_dependencies(&uri).await {
+            if result {
+                self.update_diagnostics(&uri).await;
+            }
+        }
     }
 
     // async fn completion(
