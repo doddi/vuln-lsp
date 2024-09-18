@@ -27,6 +27,7 @@ pub fn calculate_diagnostics_for_vulnerabilities(
 ) -> Vec<Diagnostic> {
     let mut vulns: HashMap<PurlRange, Vec<&VulnerabilityVersionInfo>> = HashMap::new();
 
+    trace!("calculate_diagnostics_for_vulnerabilities");
     for possible_vulnerability_match in vulnerabilities {
         // Find the direct dependency purl range that matched up to this vulnerability
         for (direct, transitives) in &parsed_content.transitives {
@@ -99,21 +100,16 @@ fn find_highest_severity_vulnerability_from_all(
         .iter()
         .filter(|vulnerability_info| !vulnerability_info.vulnerabilities.is_empty())
         .map(|vulnerability_info| {
-            // trace!("Finding highest severity vulnerability from all: {:?}", vulnerability_info.vulnerabilities.clone());
-
-            find_highest_severity_vulnerability(vulnerability_info.vulnerabilities.clone())
-                .expect("always at least one vulnerability present")
+            VulnerabilityVersionInfo::find_highest_severity_vulnerability(
+                &vulnerability_info.vulnerabilities,
+            )
+            .unwrap()
+            .clone()
         })
         .collect();
-    find_highest_severity_vulnerability(highest)
-}
-
-fn find_highest_severity_vulnerability(
-    vulnerabilities: Vec<server::VulnerabilityInformation>,
-) -> Option<server::VulnerabilityInformation> {
-    let highest = vulnerabilities
-        .iter()
-        .max_by(|a, b| a.severity.cmp(&b.severity))
-        .cloned();
-    highest
+    Some(
+        VulnerabilityVersionInfo::find_highest_severity_vulnerability(&highest)
+            .unwrap()
+            .clone(),
+    )
 }

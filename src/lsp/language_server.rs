@@ -1,4 +1,4 @@
-use crate::common::errors::VulnLspError;
+use crate::{common::errors::VulnLspError, server::VulnerabilityInformation};
 use anyhow::anyhow;
 use futures::future;
 use reqwest::Url;
@@ -20,7 +20,10 @@ use crate::{
     server::{VulnerabilityServer, VulnerabilityVersionInfo},
 };
 
-use super::{hover::create_hover_message, progress::ProgressNotifier};
+use super::{
+    hover::{self},
+    progress::ProgressNotifier,
+};
 
 pub(crate) struct VulnerabilityLanguageServer {
     client: Client,
@@ -55,16 +58,49 @@ impl VulnerabilityLanguageServer {
     }
 
     fn cache_new_found_values(&self, vulnerabilities: Vec<VulnerabilityVersionInfo>) {
+        trace!("caching {:?}", vulnerabilities);
         vulnerabilities.into_iter().for_each(|vulnerability| {
             self.vuln_store
                 .insert(&vulnerability.purl.clone(), vulnerability)
         });
     }
 
-    async fn generate_hover_content(&self, purl: Purl) -> lsp_types::HoverContents {
-        if let Ok(component_info) = self.server.get_component_information(&[purl]).await {
-            if let Some(value) = create_hover_message(component_info) {
-                return value;
+    async fn generate_hover_content(&self, url: &Url, purl: Purl) -> lsp_types::HoverContents {
+        if let Some(parsed_content) = self.parsed_store.get(url) {
+            // Get all the vulnerability information associated with the purl and its transitives
+            if let Some(all_transitive_purls) = &parsed_content.transitives.get(&purl) {
+                let vulnerabilities_for_transitives =
+                    self.get_items_from_vuln_store(all_transitive_purls);
+
+                let mut chosen_purl: Option<Purl> = None;
+                let mut chosen_vulnerability: Option<VulnerabilityInformation> = None;
+                for (purl, vulnerabilities) in vulnerabilities_for_transitives {
+                    for vulnerability_information in vulnerabilities.vulnerabilities {
+                        // TODO: This is ugly, should be relying on ordering of the strut
+                        match chosen_vulnerability {
+                            None => {
+                                chosen_purl = Some(purl.clone());
+                                chosen_vulnerability = Some(vulnerability_information.clone());
+                            }
+                            Some(ref value) => {
+                                match value.severity.cmp(&vulnerability_information.severity) {
+                                    std::cmp::Ordering::Less => {}
+                                    std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
+                                        chosen_purl = Some(purl.clone());
+                                        chosen_vulnerability =
+                                            Some(vulnerability_information.clone());
+                                    }
+                                };
+                            }
+                        }
+                    }
+                }
+
+                if chosen_purl.is_some() {
+                    if let Some(vulnerability) = chosen_vulnerability {
+                        return hover::create_hover_message(&purl, chosen_purl, vulnerability);
+                    }
+                }
             }
         }
 
@@ -75,7 +111,7 @@ impl VulnerabilityLanguageServer {
 
     async fn check_dependencies(&self, uri: &Url) -> anyhow::Result<bool> {
         if let Some(document) = self.document_store.get(uri) {
-            trace!("Updating diagnostics for {}", uri);
+            trace!("Updating dependencies for {}", uri);
 
             let parsed_content = self.parser_manager.parse(uri, &document)?;
             self.parsed_store.insert(uri, parsed_content);
@@ -84,8 +120,12 @@ impl VulnerabilityLanguageServer {
                 let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
                 let dependencies = &flattened_dependencies[..];
 
-                let unknown_purls = self.get_purls_from_vuln_store(dependencies);
-                trace!("{} purls are not currently cached", unknown_purls.len());
+                trace!("{:?}", dependencies);
+                let unknown_purls = self.get_missing_purls_from_vuln_store(dependencies);
+                trace!(
+                    "There are {} purls not currently cached",
+                    unknown_purls.len()
+                );
 
                 self.fetch_and_cache_vulnerabilities(&unknown_purls).await;
                 return Ok(true);
@@ -96,11 +136,13 @@ impl VulnerabilityLanguageServer {
 
     async fn update_diagnostics(&self, uri: &Url) {
         if let Some(parsed_content) = self.parsed_store.get(uri) {
+            trace!("found content");
             let vals = parsed_content.transitives.clone().into_values();
             let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
             let dependencies = &flattened_dependencies[..];
 
             let cached_entries = self.get_items_from_vuln_store(dependencies);
+            trace!("cached_entries");
             let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
             let diagnostics: Vec<Diagnostic> =
                 diagnostics::calculate_diagnostics_for_vulnerabilities(
@@ -115,11 +157,8 @@ impl VulnerabilityLanguageServer {
     }
 
     fn get_purl_position_in_document(&self, url: &Url, line_number: usize) -> Option<Purl> {
-        trace!("getting document for for generating hover");
         if let Some(parsed_content) = self.parsed_store.get(url) {
-            trace!("found document for for generating hover");
             for (purl, range) in parsed_content.ranges.iter() {
-                trace!("looking for {} in {:?}", line_number, range);
                 if range.contains_position(line_number) {
                     return Some(purl.clone());
                 }
@@ -162,7 +201,7 @@ impl VulnerabilityLanguageServer {
         }
     }
 
-    fn get_purls_from_vuln_store(&self, dependencies: &[Purl]) -> Vec<Purl> {
+    fn get_missing_purls_from_vuln_store(&self, dependencies: &[Purl]) -> Vec<Purl> {
         dependencies
             .iter()
             .filter(|dependency| self.vuln_store.get(dependency).is_none())
@@ -255,88 +294,12 @@ impl LanguageServer for VulnerabilityLanguageServer {
         info!("doc saved: {}", params.text_document.uri);
 
         let uri = params.text_document.uri;
-        info!("has changes {}", params.text.is_some());
-        info!("about to update diagnostics");
         if let Ok(result) = self.check_dependencies(&uri).await {
             if result {
                 self.update_diagnostics(&uri).await;
             }
         }
     }
-
-    // async fn completion(
-    //     &self,
-    //     params: lsp_types::CompletionParams,
-    // ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::CompletionResponse>> {
-    //     let url = params.text_document_position.text_document.uri;
-    //
-    //     let content = self.document_store.get(&url);
-    //
-    //     match content {
-    //         Some(items) => match params.context {
-    //             Some(CompletionContext {
-    //                 trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
-    //                 ..
-    //             })
-    //             | Some(CompletionContext {
-    //                 trigger_kind: CompletionTriggerKind::INVOKED,
-    //                 ..
-    //             }) => {
-    //                 let line_position = params.text_document_position.position.line;
-    //
-    //                 if self.parser_manager.is_editing_version(
-    //                     &url,
-    //                     &items.document,
-    //                     line_position as usize,
-    //                 ) {
-    //                     match self.parser_manager.get_purl(
-    //                         &url,
-    //                         &items.document,
-    //                         line_position as usize,
-    //                     ) {
-    //                         Some(purl) => {
-    //                             debug!("PURL: {:?}", purl);
-    //                             match self.server.get_versions_for_purl(purl).await {
-    //                                 Ok(response) => {
-    //                                     Ok(Some(lsp::completion::build_initial_response(response)))
-    //                                 }
-    //                                 // TODO: Add better error handling
-    //                                 Err(_) => Ok(None),
-    //                             }
-    //                         }
-    //                         None => todo!(),
-    //                     }
-    //                 } else {
-    //                     Ok(None)
-    //                 }
-    //             }
-    //             _ => Ok(None),
-    //         },
-    //         None => {
-    //             warn!("Document not found");
-    //             // TODO: Should probably send back an error as the document should always be known
-    //             Ok(None)
-    //         }
-    //     }
-    // }
-    //
-    // async fn completion_resolve(
-    //     &self,
-    //     params: lsp_types::CompletionItem,
-    // ) -> tower_lsp::jsonrpc::Result<lsp_types::CompletionItem> {
-    //     debug!("completion_resolve: {:?}", params);
-    //     let data = params.data.unwrap();
-    //     let purl = serde_json::from_value(data).unwrap();
-    //
-    //     debug!("about to lookup completion for {}", purl);
-    //     match self.server.get_component_information(vec![purl]).await {
-    //         Ok(vulnerabilities) => Ok(lsp::completion::build_response(&vulnerabilities[0])),
-    //         Err(_) => {
-    //             debug!("Failed to get component information");
-    //             Err(tower_lsp::jsonrpc::Error::internal_error())
-    //         }
-    //     }
-    // }
 
     async fn hover(
         &self,
@@ -348,7 +311,7 @@ impl LanguageServer for VulnerabilityLanguageServer {
         trace!("Hovering over line: {}", line_number);
         if let Some(purl) = self.get_purl_position_in_document(&uri, line_number as usize) {
             Ok(Some(lsp_types::Hover {
-                contents: self.generate_hover_content(purl.clone()).await,
+                contents: self.generate_hover_content(&uri, purl.clone()).await,
                 range: None,
             }))
         } else {

@@ -5,7 +5,7 @@ use core::panic;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{mpsc::Sender, Mutex};
+use tokio::sync::Mutex;
 use tracing::{debug, trace, warn};
 
 use super::{Severity, VulnerabilityInformation, VulnerabilityServer, VulnerabilityVersionInfo};
