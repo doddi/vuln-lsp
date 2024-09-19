@@ -6,24 +6,34 @@ pub(crate) fn create_hover_message(
     transitive: Option<Purl>,
     component_info: VulnerabilityInformation,
 ) -> HoverContents {
-    HoverContents::Markup(MarkupContent {
-        kind: Markdown,
-        value: format!(
-            r#"Direct: {}
-            {}
+    if let Some(transitive) = transitive {
+        HoverContents::Markup(MarkupContent {
+            kind: Markdown,
+            value: format!(
+                r#"Direct: {}
+                brings in: {}
                 Severity: {:?}
                 {}
                 {}
                 "#,
-            direct,
-            if transitive.is_some() {
-                format!("brings in {}", transitive.unwrap())
-            } else {
-                String::new()
-            },
-            component_info.severity,
-            component_info.summary,
-            component_info.detail,
-        ),
-    })
+                direct,
+                transitive,
+                component_info.severity,
+                component_info.summary,
+                component_info.detail,
+            ),
+        })
+    } else {
+        HoverContents::Markup(MarkupContent {
+            kind: Markdown,
+            value: format!(
+                r#"Direct: {}
+                Severity: {:?}
+                {}
+                {}
+                "#,
+                direct, component_info.severity, component_info.summary, component_info.detail,
+            ),
+        })
+    }
 }

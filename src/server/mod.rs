@@ -20,15 +20,15 @@ pub(crate) struct VulnerabilityVersionInfo {
     pub vulnerabilities: Vec<VulnerabilityInformation>,
 }
 
-impl VulnerabilityVersionInfo {
-    pub fn find_highest_severity_vulnerability(
-        vulnerabilities: &[VulnerabilityInformation],
-    ) -> Option<&VulnerabilityInformation> {
-        vulnerabilities
-            .iter()
-            .max_by(|a, b| b.severity.cmp(&a.severity))
-    }
-}
+// impl VulnerabilityVersionInfo {
+//     pub fn find_highest_severity_vulnerability(
+//         vulnerabilities: &[VulnerabilityInformation],
+//     ) -> Option<&VulnerabilityInformation> {
+//         vulnerabilities
+//             .iter()
+//             .max_by(|a, b| b.severity.cmp(&a.severity))
+//     }
+// }
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]

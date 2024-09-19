@@ -63,7 +63,6 @@ impl OssIndex {
             Ok(response) => {
                 debug!("response received from OssIndex *");
 
-                trace!("response: {:?}", response);
                 let _ = self
                     .progress_notifier
                     .send_progress(ProgressNotifierState::Update(
@@ -75,7 +74,6 @@ impl OssIndex {
 
                 match response.json::<Vec<ComponentReport>>().await {
                     Ok(payload) => {
-                        trace!("payload: {:?}", payload);
                         let data = payload
                             .into_iter()
                             .map(|component_report| {

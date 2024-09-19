@@ -1,4 +1,3 @@
-use common::document_store::DocumentStore;
 use lsp::{language_server::VulnerabilityLanguageServer, progress::ProgressNotifier};
 use parsers::ParserManager;
 use server::{VulnerabilityServer, VulnerableServerType};
@@ -13,10 +12,6 @@ mod parsers;
 pub mod server;
 
 pub async fn start(server_type: VulnerableServerType, include_transitives: bool) {
-    let document_store = DocumentStore::new();
-    let parsed_store = DocumentStore::new();
-    let vuln_store = DocumentStore::new();
-
     trace!("Starting LSP server using {:?}", server_type);
 
     let (service, socket) = LspService::build(|client| {
@@ -25,9 +20,6 @@ pub async fn start(server_type: VulnerableServerType, include_transitives: bool)
         VulnerabilityLanguageServer::new(
             client,
             server,
-            document_store,
-            parsed_store,
-            vuln_store,
             ParserManager::new(include_transitives),
             progress_notifier,
         )
