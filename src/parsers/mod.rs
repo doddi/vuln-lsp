@@ -1,19 +1,18 @@
 mod cargo;
 mod maven;
-use std::collections::HashMap;
 
 use cargo::Cargo;
 use maven::Maven;
 use reqwest::Url;
 use tracing::debug;
 
-use crate::common::{errors::VulnLspError, purl::Purl, MetadataDependencies};
+use crate::common::{errors::VulnLspError, BuildDependencies, MetadataDependencies};
 use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ParseContent {
     pub ranges: MetadataDependencies,
-    pub transitives: HashMap<Purl, Vec<Purl>>,
+    pub transitives: BuildDependencies,
 }
 
 trait Parser: Send + Sync {

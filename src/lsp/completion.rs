@@ -60,7 +60,7 @@ fn format_value(value: &VulnerabilityVersionInfo) -> String {
         format!(
             "{} has highest severity of {:?}\n\n",
             value.purl.version,
-            highlight_severity(value)
+            highest_severity(value)
         ),
         format_summary(value),
         format_detail(value),
@@ -68,7 +68,7 @@ fn format_value(value: &VulnerabilityVersionInfo) -> String {
     .join("\n")
 }
 
-fn highlight_severity(value: &VulnerabilityVersionInfo) -> Severity {
+fn highest_severity(value: &VulnerabilityVersionInfo) -> Severity {
     value
         .vulnerabilities
         .iter()

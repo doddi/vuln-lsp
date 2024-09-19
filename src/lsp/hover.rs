@@ -1,28 +1,39 @@
-use crate::server::VulnerabilityVersionInfo;
+use crate::{common::purl::Purl, server::VulnerabilityInformation};
 use tower_lsp::lsp_types::{HoverContents, MarkupContent, MarkupKind::Markdown};
 
 pub(crate) fn create_hover_message(
-    component_info: Vec<VulnerabilityVersionInfo>,
-) -> Option<HoverContents> {
-    if !component_info.is_empty() {
-        if let Some(vulnerability) = component_info[0]
-            .find_highest_severity_vulnerability(&component_info[0].vulnerabilities)
-        {
-            return Some(HoverContents::Markup(MarkupContent {
-                kind: Markdown,
-                value: format!(
-                    r#"{}
+    direct: &Purl,
+    transitive: Option<Purl>,
+    component_info: VulnerabilityInformation,
+) -> HoverContents {
+    if let Some(transitive) = transitive {
+        HoverContents::Markup(MarkupContent {
+            kind: Markdown,
+            value: format!(
+                r#"Direct: {}
+                brings in: {}
                 Severity: {:?}
                 {}
                 {}
                 "#,
-                    component_info[0].purl,
-                    vulnerability.severity,
-                    vulnerability.summary,
-                    vulnerability.detail,
-                ),
-            }));
-        }
+                direct,
+                transitive,
+                component_info.severity,
+                component_info.summary,
+                component_info.detail,
+            ),
+        })
+    } else {
+        HoverContents::Markup(MarkupContent {
+            kind: Markdown,
+            value: format!(
+                r#"Direct: {}
+                Severity: {:?}
+                {}
+                {}
+                "#,
+                direct, component_info.severity, component_info.summary, component_info.detail,
+            ),
+        })
     }
-    None
 }

@@ -1,12 +1,14 @@
-use crate::common::errors::VulnLspError;
+use crate::{
+    common::{errors::VulnLspError, purl_range::PurlRange},
+    server::VulnerabilityInformation,
+};
 use anyhow::anyhow;
-use std::collections::HashMap;
-
 use futures::future;
 use reqwest::Url;
+use std::collections::HashMap;
 use tower_lsp::{
     lsp_types::{
-        self, Diagnostic, DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams,
+        self, DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams,
         InitializeResult, InitializedParams, ServerCapabilities, ServerInfo,
         TextDocumentSyncCapability, TextDocumentSyncKind,
     },
@@ -21,14 +23,18 @@ use crate::{
     server::{VulnerabilityServer, VulnerabilityVersionInfo},
 };
 
-use super::{hover::create_hover_message, progress::ProgressNotifier};
+use super::{
+    hover::{self},
+    progress::ProgressNotifier,
+};
 
 pub(crate) struct VulnerabilityLanguageServer {
     client: Client,
+    server: Box<dyn VulnerabilityServer>,
     document_store: DocumentStore<Url, String>,
     parsed_store: DocumentStore<Url, ParseContent>,
     vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
-    server: Box<dyn VulnerabilityServer>,
+    security_display_store: DocumentStore<Purl, (Purl, VulnerabilityInformation)>,
     parser_manager: ParserManager,
     #[allow(dead_code)]
     progress_notifier: ProgressNotifier,
@@ -38,19 +44,17 @@ impl VulnerabilityLanguageServer {
     pub fn new(
         client: Client,
         server: Box<dyn VulnerabilityServer>,
-        document_store: DocumentStore<Url, String>,
-        parsed_store: DocumentStore<Url, ParseContent>,
-        vuln_store: DocumentStore<Purl, VulnerabilityVersionInfo>,
         parser_manager: ParserManager,
         progress_notifier: ProgressNotifier,
     ) -> Self {
         VulnerabilityLanguageServer {
             client: client.clone(),
-            document_store,
-            parsed_store,
             server,
+            document_store: DocumentStore::new(),
+            parsed_store: DocumentStore::new(),
+            vuln_store: DocumentStore::new(),
+            security_display_store: DocumentStore::new(),
             parser_manager,
-            vuln_store,
             progress_notifier,
         }
     }
@@ -62,10 +66,12 @@ impl VulnerabilityLanguageServer {
         });
     }
 
-    async fn generate_hover_content(&self, purl: Purl) -> lsp_types::HoverContents {
-        if let Ok(component_info) = self.server.get_component_information(&[purl]).await {
-            if let Some(value) = create_hover_message(component_info) {
-                return value;
+    async fn generate_hover_content(&self, direct_dependency: &Purl) -> lsp_types::HoverContents {
+        if let Some((transitive, info)) = self.security_display_store.get(direct_dependency) {
+            if direct_dependency == &transitive {
+                return hover::create_hover_message(direct_dependency, None, info);
+            } else {
+                return hover::create_hover_message(direct_dependency, Some(transitive), info);
             }
         }
 
@@ -74,43 +80,55 @@ impl VulnerabilityLanguageServer {
         ))
     }
 
-    async fn update_diagnostics(&self, uri: &Url) {
+    async fn update_dependencies(&self, uri: &Url) -> anyhow::Result<()> {
         if let Some(document) = self.document_store.get(uri) {
-            trace!("Updating diagnostics for {}", uri);
-            if let Ok(parsed_content) = self.parser_manager.parse(uri, &document) {
-                self.parsed_store.insert(uri, parsed_content);
-                if let Some(parsed_content) = self.parsed_store.get(uri) {
-                    let vals = parsed_content.transitives.clone().into_values();
-                    let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
-                    let dependencies = &flattened_dependencies[..];
+            trace!("Updating dependencies for {}", uri);
 
-                    let unknown_purls = self.get_purls_from_vuln_store(dependencies);
-                    trace!("{} purls are not currently cached", unknown_purls.len());
+            let parsed_content = self.parser_manager.parse(uri, &document)?;
+            self.parsed_store.insert(uri, parsed_content);
+            if let Some(parsed_content) = self.parsed_store.get(uri) {
+                let vals = parsed_content.transitives.clone().into_values();
+                let flattened_dependencies: Vec<Purl> = vals.flatten().collect();
+                let dependencies = &flattened_dependencies[..];
 
-                    self.fetch_and_cache_vulnerabilities(&unknown_purls).await;
+                let unknown_purls = self.get_missing_purls_from_vuln_store(dependencies);
+                trace!(
+                    "There are {} purls not currently cached",
+                    unknown_purls.len()
+                );
 
-                    let cached_entries = self.get_items_from_vuln_store(dependencies);
-                    let vulnerabilities = cached_entries.values().collect::<Vec<_>>();
-                    let diagnostics: Vec<Diagnostic> =
-                        diagnostics::calculate_diagnostics_for_vulnerabilities(
-                            parsed_content,
-                            vulnerabilities,
-                        );
-                    trace!("Diagnostics: {:?}", diagnostics);
-                    self.client
-                        .publish_diagnostics(uri.clone(), diagnostics, None)
-                        .await;
-                }
+                self.fetch_and_cache_vulnerabilities(&unknown_purls).await;
+                self.calculate_security_warning(uri);
+                self.update_diagnostics(uri).await;
+                return Ok(());
             }
+        }
+        Ok(())
+    }
+
+    async fn update_diagnostics(&self, uri: &Url) {
+        if let Some(parsed_content) = self.parsed_store.get(uri) {
+            let diagnostics = parsed_content
+                .ranges
+                .into_iter()
+                .filter_map(|(direct_dependency, range)| {
+                    if let Some((purl, info)) = self.security_display_store.get(&direct_dependency)
+                    {
+                        let purl_range = PurlRange { purl, range };
+                        return Some(diagnostics::create_diagnostic(&purl_range, &info));
+                    }
+                    None
+                })
+                .collect();
+            self.client
+                .publish_diagnostics(uri.clone(), diagnostics, None)
+                .await;
         }
     }
 
     fn get_purl_position_in_document(&self, url: &Url, line_number: usize) -> Option<Purl> {
-        trace!("getting document for for generating hover");
         if let Some(parsed_content) = self.parsed_store.get(url) {
-            trace!("found document for for generating hover");
             for (purl, range) in parsed_content.ranges.iter() {
-                trace!("looking for {} in {:?}", line_number, range);
                 if range.contains_position(line_number) {
                     return Some(purl.clone());
                 }
@@ -122,7 +140,7 @@ impl VulnerabilityLanguageServer {
     async fn batch(&self, purls: &[Purl]) -> anyhow::Result<Vec<VulnerabilityVersionInfo>> {
         const BATCH_SIZE: usize = 100;
         let chunks = purls.chunks(BATCH_SIZE);
-        info!("Request is split into {} chunks", chunks.len());
+        debug!("Request is split into {} chunks", chunks.len());
 
         // TODO: How can I keep a counter updated?
         let joins = chunks
@@ -153,7 +171,7 @@ impl VulnerabilityLanguageServer {
         }
     }
 
-    fn get_purls_from_vuln_store(&self, dependencies: &[Purl]) -> Vec<Purl> {
+    fn get_missing_purls_from_vuln_store(&self, dependencies: &[Purl]) -> Vec<Purl> {
         dependencies
             .iter()
             .filter(|dependency| self.vuln_store.get(dependency).is_none())
@@ -173,6 +191,60 @@ impl VulnerabilityLanguageServer {
                 (purl.clone(), vuln)
             })
             .collect()
+    }
+
+    fn calculate_security_warning(&self, url: &Url) {
+        if let Some(parsed_content) = self.parsed_store.get(url) {
+            self.security_display_store.clear();
+            parsed_content
+                .ranges
+                .iter()
+                .for_each(|(direct_dependency, _)| {
+                    // Get all the vulnerability information associated with the purl and its transitives
+                    if let Some(all_transitive_purls) =
+                        &parsed_content.transitives.get(direct_dependency)
+                    {
+                        let vulnerabilities_for_transitives =
+                            self.get_items_from_vuln_store(all_transitive_purls);
+
+                        let mut chosen_purl: Option<Purl> = None;
+                        let mut chosen_vulnerability: Option<VulnerabilityInformation> = None;
+                        for (purl, vulnerabilities) in vulnerabilities_for_transitives {
+                            for vulnerability_information in vulnerabilities.vulnerabilities {
+                                // TODO: This is ugly, should be relying on ordering of the strut
+                                match chosen_vulnerability {
+                                    None => {
+                                        chosen_purl = Some(purl.clone());
+                                        chosen_vulnerability =
+                                            Some(vulnerability_information.clone());
+                                    }
+                                    Some(ref value) => {
+                                        match value
+                                            .severity
+                                            .cmp(&vulnerability_information.severity)
+                                        {
+                                            std::cmp::Ordering::Less => {}
+                                            std::cmp::Ordering::Equal
+                                            | std::cmp::Ordering::Greater => {
+                                                chosen_purl = Some(purl.clone());
+                                                chosen_vulnerability =
+                                                    Some(vulnerability_information.clone());
+                                            }
+                                        };
+                                    }
+                                }
+                            }
+                        }
+
+                        if let Some(chosen_purl) = chosen_purl {
+                            if let Some(vulnerability) = chosen_vulnerability {
+                                self.security_display_store
+                                    .insert(direct_dependency, (chosen_purl, vulnerability));
+                            }
+                        }
+                    }
+                });
+        }
     }
 }
 
@@ -224,7 +296,7 @@ impl LanguageServer for VulnerabilityLanguageServer {
         let text_document = params.text_document.text;
 
         self.document_store.insert(&uri, text_document);
-        self.update_diagnostics(&uri).await;
+        let _ = self.update_dependencies(&uri).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -242,84 +314,8 @@ impl LanguageServer for VulnerabilityLanguageServer {
         info!("doc saved: {}", params.text_document.uri);
 
         let uri = params.text_document.uri;
-        info!("has changes {}", params.text.is_some());
-        info!("about to update diagnostics");
-        self.update_diagnostics(&uri).await;
+        let _ = self.update_dependencies(&uri).await;
     }
-
-    // async fn completion(
-    //     &self,
-    //     params: lsp_types::CompletionParams,
-    // ) -> tower_lsp::jsonrpc::Result<Option<lsp_types::CompletionResponse>> {
-    //     let url = params.text_document_position.text_document.uri;
-    //
-    //     let content = self.document_store.get(&url);
-    //
-    //     match content {
-    //         Some(items) => match params.context {
-    //             Some(CompletionContext {
-    //                 trigger_kind: CompletionTriggerKind::TRIGGER_CHARACTER,
-    //                 ..
-    //             })
-    //             | Some(CompletionContext {
-    //                 trigger_kind: CompletionTriggerKind::INVOKED,
-    //                 ..
-    //             }) => {
-    //                 let line_position = params.text_document_position.position.line;
-    //
-    //                 if self.parser_manager.is_editing_version(
-    //                     &url,
-    //                     &items.document,
-    //                     line_position as usize,
-    //                 ) {
-    //                     match self.parser_manager.get_purl(
-    //                         &url,
-    //                         &items.document,
-    //                         line_position as usize,
-    //                     ) {
-    //                         Some(purl) => {
-    //                             debug!("PURL: {:?}", purl);
-    //                             match self.server.get_versions_for_purl(purl).await {
-    //                                 Ok(response) => {
-    //                                     Ok(Some(lsp::completion::build_initial_response(response)))
-    //                                 }
-    //                                 // TODO: Add better error handling
-    //                                 Err(_) => Ok(None),
-    //                             }
-    //                         }
-    //                         None => todo!(),
-    //                     }
-    //                 } else {
-    //                     Ok(None)
-    //                 }
-    //             }
-    //             _ => Ok(None),
-    //         },
-    //         None => {
-    //             warn!("Document not found");
-    //             // TODO: Should probably send back an error as the document should always be known
-    //             Ok(None)
-    //         }
-    //     }
-    // }
-    //
-    // async fn completion_resolve(
-    //     &self,
-    //     params: lsp_types::CompletionItem,
-    // ) -> tower_lsp::jsonrpc::Result<lsp_types::CompletionItem> {
-    //     debug!("completion_resolve: {:?}", params);
-    //     let data = params.data.unwrap();
-    //     let purl = serde_json::from_value(data).unwrap();
-    //
-    //     debug!("about to lookup completion for {}", purl);
-    //     match self.server.get_component_information(vec![purl]).await {
-    //         Ok(vulnerabilities) => Ok(lsp::completion::build_response(&vulnerabilities[0])),
-    //         Err(_) => {
-    //             debug!("Failed to get component information");
-    //             Err(tower_lsp::jsonrpc::Error::internal_error())
-    //         }
-    //     }
-    // }
 
     async fn hover(
         &self,
@@ -331,7 +327,7 @@ impl LanguageServer for VulnerabilityLanguageServer {
         trace!("Hovering over line: {}", line_number);
         if let Some(purl) = self.get_purl_position_in_document(&uri, line_number as usize) {
             Ok(Some(lsp_types::Hover {
-                contents: self.generate_hover_content(purl.clone()).await,
+                contents: self.generate_hover_content(&purl).await,
                 range: None,
             }))
         } else {

@@ -31,4 +31,8 @@ where
     pub(crate) fn get(&self, key: &K) -> Option<V> {
         self.inner.lock().unwrap().get(key).cloned()
     }
+
+    pub(crate) fn clear(&self) {
+        self.inner.lock().unwrap().clear();
+    }
 }
