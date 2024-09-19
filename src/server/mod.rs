@@ -20,16 +20,6 @@ pub(crate) struct VulnerabilityVersionInfo {
     pub vulnerabilities: Vec<VulnerabilityInformation>,
 }
 
-// impl VulnerabilityVersionInfo {
-//     pub fn find_highest_severity_vulnerability(
-//         vulnerabilities: &[VulnerabilityInformation],
-//     ) -> Option<&VulnerabilityInformation> {
-//         vulnerabilities
-//             .iter()
-//             .max_by(|a, b| b.severity.cmp(&a.severity))
-//     }
-// }
-
 #[allow(dead_code)]
 #[derive(Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
 pub(crate) enum Severity {
@@ -66,52 +56,4 @@ pub(crate) trait VulnerabilityServer: Send + Sync {
         &self,
         purls: &[Purl],
     ) -> anyhow::Result<Vec<VulnerabilityVersionInfo>>;
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_find_highest_severity_vulnerability() {
-        let test = vec![
-            VulnerabilityInformation {
-                severity: Severity::Low,
-                summary: "Low".to_string(),
-                detail: "".to_string(),
-                license: vec![],
-            },
-            VulnerabilityInformation {
-                severity: Severity::Critical,
-                summary: "Critical".to_string(),
-                detail: "".to_string(),
-                license: vec![],
-            },
-        ];
-        let actual = VulnerabilityVersionInfo::find_highest_severity_vulnerability(&test);
-
-        assert_eq!(actual.unwrap().severity, Severity::Critical);
-    }
-
-    #[test]
-    fn test_find_highest_severity_vulnerability_when_matching() {
-        let test = vec![
-            VulnerabilityInformation {
-                severity: Severity::Critical,
-                summary: "1".to_string(),
-                detail: "".to_string(),
-                license: vec![],
-            },
-            VulnerabilityInformation {
-                severity: Severity::Critical,
-                summary: "2".to_string(),
-                detail: "".to_string(),
-                license: vec![],
-            },
-        ];
-        let actual = VulnerabilityVersionInfo::find_highest_severity_vulnerability(&test);
-
-        assert_eq!(actual.unwrap().severity, Severity::Critical);
-        assert_eq!(actual.unwrap().summary, "2".to_string());
-    }
 }
