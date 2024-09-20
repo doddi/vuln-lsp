@@ -1,4 +1,7 @@
-use lsp::{language_server::VulnerabilityLanguageServer, progress::ProgressNotifier};
+use lsp::{
+    language_server::VulnerabilityLanguageServer, middleware::Middleware,
+    progress::ProgressNotifier,
+};
 use parsers::ParserManager;
 use server::{VulnerabilityServer, VulnerableServerType};
 use tokio::io::{stdin, stdout};
@@ -17,12 +20,9 @@ pub async fn start(server_type: VulnerableServerType, include_transitives: bool)
     let (service, socket) = LspService::build(|client| {
         let progress_notifier = ProgressNotifier::new(client.clone());
         let server = create_server(&server_type, progress_notifier.clone());
-        VulnerabilityLanguageServer::new(
-            client,
-            server,
-            ParserManager::new(include_transitives),
-            progress_notifier,
-        )
+        let parse_manager = ParserManager::new(include_transitives);
+        let middleware = Middleware::new(server, parse_manager);
+        VulnerabilityLanguageServer::new(middleware, client, progress_notifier)
     })
     .finish();
     Server::new(stdin(), stdout(), socket).serve(service).await;
