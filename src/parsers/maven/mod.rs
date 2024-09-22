@@ -43,7 +43,7 @@ impl Parser for Maven {
             build_dependency_list_from_command()?
         };
 
-        let ranges = merge_dependencies_into_purls(metadata_dependencies, &transitives);
+        let ranges = compute_metadata_dependencies_into_purls(metadata_dependencies, &transitives);
 
         let content = ParseContent {
             ranges,
@@ -53,17 +53,17 @@ impl Parser for Maven {
     }
 }
 
-fn merge_dependencies_into_purls(
+fn compute_metadata_dependencies_into_purls(
     metadata_dependencies: PomMetadataDependencies,
     transitives: &BuildDependencies,
 ) -> MetadataDependencies {
     metadata_dependencies
         .iter()
-        .filter_map(|metadata_dependency| fun_name(metadata_dependency, transitives))
+        .filter_map(|metadata_dependency| determine_purl(metadata_dependency, transitives))
         .collect()
 }
 
-fn fun_name(
+fn determine_purl(
     metadata_dependency: (&Dependency, &Range),
     transitives: &BuildDependencies,
 ) -> Option<(Purl, Range)> {
