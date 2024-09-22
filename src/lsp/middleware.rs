@@ -222,6 +222,6 @@ impl Middleware {
     }
 
     pub(crate) fn store_document(&self, uri: &Url, text_document: String) {
-        self.document_store.insert(&uri, text_document);
+        self.document_store.insert(uri, text_document);
     }
 }

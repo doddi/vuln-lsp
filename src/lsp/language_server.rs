@@ -52,7 +52,7 @@ impl VulnerabilityLanguageServer {
     }
 
     async fn update_diagnostics(&self, uri: &Url) {
-        let security_information = self.middleware.get_security_information_for_document(&uri);
+        let security_information = self.middleware.get_security_information_for_document(uri);
         if !security_information.is_empty() {
             let diagnostics = security_information
                 .iter()

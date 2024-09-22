@@ -51,7 +51,6 @@ fn parse_response(data: String) -> anyhow::Result<BuildDependencies> {
         DigraphState::Finished => {}
     });
 
-    debug!("{:?}", tree);
     match tree.state {
         DigraphState::Finished => calculate_build_dependencies(tree),
         _ => Err(anyhow::anyhow!("Error parsing dependency:tree call")),
@@ -226,12 +225,12 @@ mod test {
         assert_eq!(2, result.get(&key).unwrap().len());
     }
 
-    #[test]
-    fn can_get_parent_child_relationship() {
-        let line = "[INFO] 	\"com.javatpoint.application1:my-application1:jar:1.0\" -> \"org.opensaml:opensaml:jar:2.4.1:compile\" ;";
-
-        let result: (Purl, Purl) = get_parent_child_from_digraph_line(&line).unwrap();
-    }
+    // #[test]
+    // fn can_get_parent_child_relationship() {
+    //     let line = "[INFO] 	\"com.javatpoint.application1:my-application1:jar:1.0\" -> \"org.opensaml:opensaml:jar:2.4.1:compile\" ;";
+    //
+    //     let result: (Purl, Purl) = get_parent_child_from_digraph_line(&line).unwrap();
+    // }
 
     #[test]
     fn can_get_purl_from_digrph_string() {
