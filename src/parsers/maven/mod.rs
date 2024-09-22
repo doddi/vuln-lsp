@@ -2,9 +2,10 @@ mod dep_tree;
 mod pom;
 
 use dep_tree::build_dependency_list_from_command;
+use pom::{Dependency, PomMetadataDependencies};
 use tracing::trace;
 
-use crate::common::MetadataDependencies;
+use crate::common::{purl::Purl, range::Range, BuildDependencies, MetadataDependencies};
 
 use super::{ParseContent, Parser};
 
@@ -26,23 +27,53 @@ impl Parser for Maven {
     }
 
     fn parse(&self, document: &str) -> anyhow::Result<ParseContent> {
-        let ranges: MetadataDependencies = pom::determine_dependencies_with_range(document);
+        let metadata_dependencies = pom::determine_dependencies_with_range(document);
 
         let transitives = if !self.include_transitives {
             trace!("Only considering the direct dependencies");
-            ranges
+            metadata_dependencies
                 .clone()
                 .keys()
-                .map(|purl| (purl.clone(), vec![purl.clone()]))
+                .map(|dependency| {
+                    let purl: Purl = dependency.clone().into();
+                    (purl.clone(), vec![purl])
+                })
                 .collect()
         } else {
             build_dependency_list_from_command()?
         };
+
+        let ranges = merge_dependencies_into_purls(metadata_dependencies, &transitives);
 
         let content = ParseContent {
             ranges,
             transitives,
         };
         Ok(content)
+    }
+}
+
+fn merge_dependencies_into_purls(
+    metadata_dependencies: PomMetadataDependencies,
+    transitives: &BuildDependencies,
+) -> MetadataDependencies {
+    metadata_dependencies
+        .iter()
+        .filter_map(|metadata_dependency| fun_name(metadata_dependency, transitives))
+        .collect()
+}
+
+fn fun_name(
+    metadata_dependency: (&Dependency, &Range),
+    transitives: &BuildDependencies,
+) -> Option<(Purl, Range)> {
+    let mut build_direct_dependencies = transitives.keys();
+    match build_direct_dependencies.find(|build_purl| {
+        build_purl.group_id.is_some()
+            && build_purl.group_id.clone().unwrap() == metadata_dependency.0.group_id
+            && build_purl.artifact_id == metadata_dependency.0.artifact_id
+    }) {
+        Some(purl) => Some((purl.clone(), metadata_dependency.1.clone())),
+        None => None,
     }
 }

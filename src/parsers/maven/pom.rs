@@ -5,9 +5,7 @@ use tracing::{trace, warn};
 
 use crate::common::{
     purl::Purl,
-    purl_range::PurlRange,
     range::{Position, Range},
-    MetadataDependencies,
 };
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -28,8 +26,8 @@ struct Dependencies {
     pub dependency: Vec<Dependency>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-struct Dependency {
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+pub(super) struct Dependency {
     #[serde(rename = "groupId")]
     pub group_id: String,
     #[serde(rename = "artifactId")]
@@ -59,10 +57,12 @@ impl From<Dependency> for Purl {
     }
 }
 
+pub(super) type PomMetadataDependencies = HashMap<Dependency, Range>;
+
 // It is not possible to simply parse the entire file using serde because
 // it could be that the content is not valid xml.
 // So the approach I have taken here is to iterate over it line by line
-pub fn determine_dependencies_with_range(document: &str) -> MetadataDependencies {
+pub fn determine_dependencies_with_range(document: &str) -> PomMetadataDependencies {
     let lines = document.lines().collect::<Vec<&str>>();
 
     let mut dep_start = None;
@@ -81,8 +81,8 @@ pub fn determine_dependencies_with_range(document: &str) -> MetadataDependencies
         }
 
         if let (Some(start), Some(end)) = (&dep_start, &dep_end) {
-            if let Ok(depenency) = extract_dependency(&lines, start, end) {
-                dependencies.insert(depenency.purl, depenency.range);
+            if let Ok((depenency, range)) = extract_dependency(&lines, start, end) {
+                dependencies.insert(depenency, range);
             }
             dep_start = None;
             dep_end = None;
@@ -95,14 +95,14 @@ fn extract_dependency(
     lines_for_extraction: &[&str],
     start: &Position,
     end: &Position,
-) -> Result<PurlRange, String> {
+) -> Result<(Dependency, Range), String> {
     trace!("Extracting dependency information");
     let dependency_scope = &lines_for_extraction[start.row..=end.row];
     match serde_xml_rs::from_str::<Dependency>(dependency_scope.concat().as_str()) {
         Ok(dep) => {
             trace!("Found dependency: {:?}", dep);
             let range = Range::new(start.clone(), end.clone());
-            Ok(PurlRange::new(dep.into(), range))
+            Ok((dep, range))
         }
         Err(err) => {
             warn!("Failed to parse dependency: {}", err);
@@ -134,19 +134,17 @@ mod test {
         assert!(response.is_ok());
         let actual = response.unwrap();
         assert_eq!(
-            actual.purl,
-            Purl {
-                package: "maven".to_string(),
-                group_id: Some("junit".to_string()),
+            actual.0,
+            Dependency {
+                group_id: "junit".to_string(),
                 artifact_id: "junit".to_string(),
-                version: "4.8.2".to_string(),
-                purl_type: Some("jar".to_string()),
+                version: Some("4.8.2".to_string()),
             }
         );
-        assert_eq!(actual.range.start.row, 1);
-        assert_eq!(actual.range.start.col, 0);
-        assert_eq!(actual.range.end.row, 6);
-        assert_eq!(actual.range.end.col, 0);
+        assert_eq!(actual.1.start.row, 1);
+        assert_eq!(actual.1.start.col, 0);
+        assert_eq!(actual.1.end.row, 6);
+        assert_eq!(actual.1.end.col, 0);
     }
 
     #[test]
@@ -172,5 +170,30 @@ mod test {
         actual = test_map.get("struts-core").unwrap();
         assert_eq!(actual.start.row, 26);
         assert_eq!(actual.end.row, 30);
+    }
+
+    #[test]
+    fn test_extract_dependencies_without_version() {
+        let doc = include_str!("../../../resources/maven/pom_without_version.xml");
+
+        let response = determine_dependencies_with_range(doc);
+        assert!(!response.is_empty());
+        assert_eq!(response.len(), 3);
+
+        let mut test_map: HashMap<String, Range> = HashMap::new();
+
+        response.into_iter().for_each(|(key, value)| {
+            test_map.insert(key.artifact_id, value);
+        });
+
+        let mut actual = test_map.get("selenium-java").unwrap();
+        assert_eq!(actual.start.row, 16);
+        assert_eq!(actual.end.row, 19);
+        actual = test_map.get("opensaml").unwrap();
+        assert_eq!(actual.start.row, 20);
+        assert_eq!(actual.end.row, 24);
+        actual = test_map.get("struts-core").unwrap();
+        assert_eq!(actual.start.row, 25);
+        assert_eq!(actual.end.row, 29);
     }
 }
